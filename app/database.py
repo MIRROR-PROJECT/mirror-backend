@@ -5,6 +5,7 @@ import os
 
 # 실제 PostgreSQL 접속 정보를 입력하세요
 SQLALCHEMY_DATABASE_URL = "postgresql://postgres:1234@localhost:5432/mirror-db"
+# SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:5432/mirror_db")
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
