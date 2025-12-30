@@ -22,7 +22,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 # 3. 학생-강사 다중 매칭 연결 테이블 (N:M 관계 해결)
-aclass StudentClassMatch(Base):
+class StudentClassMatch(Base):
     __tablename__ = "student_class_matches"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
