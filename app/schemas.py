@@ -42,3 +42,13 @@ class ProfileCreateRequest(BaseModel):
 # BaseResponse[ProfileResponseData] 형태로 제네릭을 활용합니다.
 class StudentProfileResponse(BaseResponse[ProfileResponseData]):
     pass
+
+# 질답 페어 개별 아이템
+class StyleAnswerItem(BaseModel):
+    question: str
+    answer: str
+
+# 2단계 요청 바디
+class StyleQuizRequest(BaseModel):
+    user_id: UUID
+    style_answers: List[StyleAnswerItem]

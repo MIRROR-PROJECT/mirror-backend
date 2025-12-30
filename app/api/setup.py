@@ -44,3 +44,32 @@ def create_student_basic_info(
         message="기본 정보 등록 완료",
         code=201
     )
+
+
+# 💡 AI 분석 전까지 데이터를 담아둘 임시 저장소
+# key: user_id (str), value: style_answers 리스트
+temp_quiz_store = {}
+
+@router.post("/style-quiz", response_model=schemas.BaseResponse, status_code=status.HTTP_201_CREATED)
+async def store_style_quiz(request: schemas.StyleQuizRequest):
+    """
+    [Step 2] 인지성향 질답 임시 저장 API
+    """
+    try:
+        # 1. 메모리에 유저 ID별로 질답 리스트 저장
+        # 이 데이터는 나중에 finalize API에서 꺼내어 AI 프롬프트로 들어갑니다.
+        temp_quiz_store[str(request.user_id)] = request.style_answers
+        
+        # 2. 명세서 규격에 맞춘 성공 응답 (code 200 요청 반영)
+        return schemas.BaseResponse.success_res(
+            data=None,
+            message="인지성향 답변 임시 저장 완료",
+            code=200
+        )
+        
+    except Exception as e:
+        # 3. 실패 응답
+        return schemas.BaseResponse.fail_res(
+            message="유효하지 않은 유저 ID이거나 프로필 설정 단계가 올바르지 않습니다.",
+            code=400
+        )
