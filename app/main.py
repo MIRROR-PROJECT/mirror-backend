@@ -27,13 +27,17 @@ app.add_middleware(
 )
 # --- [CORS 설정 끝] ---
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def root():
     return schemas.BaseResponse.success_res(message="Mirror AI Backend is running!")
-
-from fastapi import FastAPI, Depends, status
-from sqlalchemy.orm import Session
-from . import models, schemas, database
 
 # 라우터 등록
 app.include_router(setup.router)
