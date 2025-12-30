@@ -21,88 +21,24 @@ class BaseResponse(BaseModel, Generic[T]):
     def fail_res(cls, message: str = "요청 처리 실패", code: int = 400):
         return cls(success=False, code=code, message=message, data=None)
 
-# --- 기존 데이터 모델 ---
+# --- [데이터 상세 모델] ---
+class ProfileResponseData(BaseModel):
+    profile_id: UUID
+    user_id: UUID
+    streak_days: int = 0
+    total_points: int = 0
 
-# 유저 생성용
-class UserBase(BaseModel):
-    email: EmailStr
-    name: str
-
-class UserCreate(UserBase):
-    pass
-
-class User(UserBase):
-    id: UUID
     class Config:
-        from_attributes = True
+        from_attributes = True # SQLAlchemy 모델 객체를 Pydantic으로 자동 변환
 
-# 학생 프로필용
-class StudentProfileBase(BaseModel):
+# --- [요청 모델] ---
+class ProfileCreateRequest(BaseModel):
+    user_id: UUID
     school_grade: int
     semester: int
     subjects: List[str]
-    cognitive_type: CognitiveType
 
-class StudentProfileCreate(StudentProfileBase):
-    user_id: UUID
-
-class StudentProfile(StudentProfileBase):
-    id: UUID
-    streak_days: int
-    total_points: int
-    class Config:
-        from_attributes = True
-
-# 태스크(체크리스트)용
-class TaskBase(BaseModel):
-    category: str
-    title: str
-    assigned_minutes: int
-    sequence: int
-
-class Task(TaskBase):
-    id: UUID
-    is_completed: bool
-    class Config:
-        from_attributes = True
-
-# 일일 계획용
-class DailyPlanBase(BaseModel):
-    title: str
-    target_minutes: int
-
-class DailyPlan(DailyPlanBase):
-    id: UUID
-    plan_date: date
-    is_completed: bool
-    tasks: List[Task] = []
-    class Config:
-        from_attributes = True
-        
-
-# 주간 루틴 개별 항목
-class WeeklyRoutineItem(BaseModel):
-    day_of_week: str
-    start_time: str
-    end_time: str
-    total_minutes: int
-
-# 주간 루틴 대량 등록 요청 바디
-class WeeklyRoutineBulkCreate(BaseModel):
-    student_id: UUID
-    routines: List[WeeklyRoutineItem]
-
-# 시험 기간 내 요일별 상세 시간 (주간 루틴과 동일한 구조)
-class ExamDayRoutineItem(BaseModel):
-    day_of_week: str  # MON, TUE ...
-    start_time: str   # "14:00"
-    end_time: str     # "18:00"
-    total_minutes: int # 240
-
-# 시험 루틴 생성 요청 (상세 항목 리스트 포함)
-class ExamRoutineBulkCreate(BaseModel):
-    student_id: UUID
-    title: str
-    start_date: date
-    end_date: date
-    routines: List[WeeklyRoutineItem]  # 요일별 상세 루틴 리스트 포함
+# --- [최종 응답 모델] ---
+# BaseResponse[ProfileResponseData] 형태로 제네릭을 활용합니다.
+class StudentProfileResponse(BaseResponse[ProfileResponseData]):
+    pass

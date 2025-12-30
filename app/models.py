@@ -121,3 +121,48 @@ class LearningAnalytics(Base):
     unit_name = Column(String)
     achievement_rate = Column(Float)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+# 10. 문제 분석 결과
+class ProblemAnalysisLog(Base):
+    __tablename__ = "problem_analysis_logs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
+    
+    # 분석 데이터
+    source_type = Column(String)  # "DIAGNOSIS" (초기 진단) 또는 "STUDY" (일반 학습)
+    extracted_text = Column(Text) # OCR로 추출된 문제 지문
+    detected_concepts = Column(JSONB) # 문제에 포함된 개념 ["로그함수", "방정식"]
+    difficulty_level = Column(String) # AI 판단 난이도 (상, 중, 하)
+    
+    # 학생 상태 판정
+    error_reason = Column(String) # AI가 분석한 오답 원인
+    ai_feedback_summary = Column(Text) # 해당 문제에 대한 AI의 핵심 코멘트
+    
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # 관계 설정
+    student = relationship("StudentProfile", back_populates="analysis_logs")
+    chat_messages = relationship("ChatMessage", back_populates="problem_log")
+
+11. 대화 맥락 저장
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
+    
+    # 특정 문제에 대한 대화인 경우 연결 (FK)
+    problem_log_id = Column(UUID(as_uuid=True), ForeignKey("problem_analysis_logs.id"), nullable=True)
+    
+    role = Column(String)    # "user" (학생) 또는 "assistant" (AI 튜터)
+    content = Column(Text)   # 메시지 본문
+    
+    # AI가 분석한 대화 시점의 학생 상태 (부가 정보)
+    student_sentiment = Column(String, nullable=True) # "이해함", "혼란스러움" 등
+    
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # 관계 설정
+    student = relationship("StudentProfile", back_populates="chat_messages")
+    problem_log = relationship("ProblemAnalysisLog", back_populates="chat_messages")ㄴ
