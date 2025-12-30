@@ -1,7 +1,7 @@
 import enum
 import uuid
 import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Date, Enum, Time
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Date, Enum, Time, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from .database import Base
@@ -145,7 +145,7 @@ class ProblemAnalysisLog(Base):
     student = relationship("StudentProfile", back_populates="analysis_logs")
     chat_messages = relationship("ChatMessage", back_populates="problem_log")
 
-11. 대화 맥락 저장
+# 11. 대화 맥락 저장
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
     
@@ -165,4 +165,4 @@ class ChatMessage(Base):
 
     # 관계 설정
     student = relationship("StudentProfile", back_populates="chat_messages")
-    problem_log = relationship("ProblemAnalysisLog", back_populates="chat_messages")ㄴ
+    problem_log = relationship("ProblemAnalysisLog", back_populates="chat_messages")
