@@ -61,7 +61,7 @@ class StudentProfile(Base):
 
     # 관계 설정 (N:M 연결 테이블을 통해 강사들과 연결됨)
     user = relationship("User", foreign_keys=[user_id])
-    teacher_matches = relationship("StudentTeacherMatch", back_populates="student")
+    class_matches = relationship("StudentClassMatch", back_populates="student")
     weekly_routines = relationship("WeeklyRoutine", back_populates="student", cascade="all, delete-orphan")
     analysis_logs = relationship("ProblemAnalysisLog", back_populates="student")
     chat_messages = relationship("ChatMessage", back_populates="student")
