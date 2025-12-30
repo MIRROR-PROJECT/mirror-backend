@@ -22,17 +22,21 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 # 3. 학생-강사 다중 매칭 연결 테이블 (N:M 관계 해결)
-class StudentTeacherMatch(Base):
-    __tablename__ = "student_teacher_matches"
+aclass StudentClassMatch(Base):
+    __tablename__ = "student_class_matches"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"))
-    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    academy_name = Column(String, nullable=True) # 어떤 학원 소속으로 매칭되었는지 기록
+    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
+    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    
+    # 추가된 핵심 필드
+    academy_name = Column(String, nullable=True)     # 학원 이름
+    class_name = Column(String, nullable=False)       # 구체적인 반 이름 (예: "고2 수학 A반", "심화 물리반")
+    class_code = Column(String, nullable=True)        # 반 고유 코드 (선택사항, 출석부 연동용)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     # 관계 설정
-    student = relationship("StudentProfile", back_populates="teacher_matches")
-    teacher = relationship("User")
+    student = relationship("StudentProfile", back_populates="class_matches")
+    teacher = relationship("User") # 강사 유저 정보와 연결
 
 # 4. 학생 프로필
 class StudentProfile(Base):
@@ -45,6 +49,11 @@ class StudentProfile(Base):
     semester = Column(Integer)
     subjects = Column(JSONB)
     cognitive_type = Column(Enum(CognitiveType), default=CognitiveType.SPEED_FIRST)
+
+    # AI가 업데이트할 동적 필드들
+    mastery_map = Column(JSONB, default={})        # {"수학": "중", "영어": "상"}
+    error_patterns = Column(JSONB, default=[])     # ["계산실수", "개념혼동"]
+    interaction_style = Column(String, nullable=True) # "핵심요약형", "상세설명형"
     
     # 통계
     streak_days = Column(Integer, default=0)
@@ -53,41 +62,44 @@ class StudentProfile(Base):
     # 관계 설정 (N:M 연결 테이블을 통해 강사들과 연결됨)
     user = relationship("User", foreign_keys=[user_id])
     teacher_matches = relationship("StudentTeacherMatch", back_populates="student")
+    weekly_routines = relationship("WeeklyRoutine", back_populates="student", cascade="all, delete-orphan")
+    analysis_logs = relationship("ProblemAnalysisLog", back_populates="student")
+    chat_messages = relationship("ChatMessage", back_populates="student")
 
 # 5. 주간 루틴
 class WeeklyRoutine(Base):
     __tablename__ = "weekly_routines"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"))
-    day_of_week = Column(String)
-    start_time = Column(Time)
-    end_time = Column(Time)
-    total_minutes = Column(Integer)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
+    
+    # 요일 정보 (Enum이나 String)
+    day_of_week = Column(String, nullable=False) # "MON", "TUE" 등
+    
+    # 개별 블록 정보 - 각 블록의 이름을 명시 (예: "아침 자습", "수학 학원")
+    block_name = Column(String, nullable=True) 
+    start_time = Column(Time, nullable=False)  # 08:00
+    end_time = Column(Time, nullable=False)    # 09:30
+    
+    # 3. 메타데이터 (RAG 분석용)
+    category = Column(String, nullable=True)   # "수학", "영어", "자유학습"
 
-# 6. 시험 대비 기간
-class ExamPeriod(Base):
-    __tablename__ = "exam_periods"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"))
-    title = Column(String)
-    start_date = Column(Date)
-    end_date = Column(Date)
-    daily_target_minutes = Column(Integer)
+    total_minutes = Column(Integer) 
+    student = relationship("StudentProfile", back_populates="weekly_routines")
 
-# 7. 일일 계획
+
+# 6. 일일 계획
 class DailyPlan(Base):
     __tablename__ = "daily_plans"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"))
     plan_date = Column(Date, default=datetime.date.today)
-    title = Column(String)
-    target_minutes = Column(Integer)
-    source_type = Column(String)
-    is_completed = Column(Boolean, default=False)
+    title = Column(String) # 해당 날짜 계획의 대표 명칭 (예: "기말고사 대비 수학 집중일")
+    target_minutes = Column(Integer) # 그날 목표로 하는 순공 시간
+    is_completed = Column(Boolean, default=False) 
     
     tasks = relationship("Task", back_populates="plan", cascade="all, delete-orphan")
 
-# 8. 체크리스트 태스크
+# 7. 체크리스트 내의 개별 테스크
 class Task(Base):
     __tablename__ = "tasks"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
