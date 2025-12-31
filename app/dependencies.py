@@ -37,5 +37,9 @@ async def get_current_user(authorization: str = Header(None)) -> str:
         return user_id  # 성공 시 유저 UUID 반환
         
     except Exception as e:
-        # 토큰 만료, 변조 등 모든 에러 처리
-        raise HTTPException(status_code=401, detail="인증 토큰이 유효하지 않거나 만료되었습니다.")
+        # 실제 에러 내용을 로그에 찍고, 프론트에도 보내서 확인합니다.
+        print(f"DEBUG AUTH ERROR: {str(e)}")
+        raise HTTPException(
+            status_code=401, 
+            detail=f"인증 실패: {str(e)}" # 💡 이 메시지가 프론트에 뭐라고 뜨는지 알려주세요!
+        )
