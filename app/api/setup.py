@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app import models, schemas
 from app.database import get_db
+from app.dependencies import get_current_user
 
 # 라우터 파일명을 반영하여 태그와 접두사 설정
 router = APIRouter(prefix="/setup", tags=["Step 1: 초기 설정"])
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/setup", tags=["Step 1: 초기 설정"])
 def create_student_basic_info(
     request: schemas.ProfileCreateRequest, 
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id) # 💡 로그인 여부 확인
+    current_user_id: str = Depends(get_current_user) # 💡 로그인 여부 확인
 ):
     """
     [Step 1] 학생 기본 정보 등록
