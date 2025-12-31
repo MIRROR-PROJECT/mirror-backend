@@ -23,7 +23,7 @@ class BaseResponse(BaseModel, Generic[T]):
 
 # --- [데이터 상세 모델] ---
 class ProfileResponseData(BaseModel):
-    profile_id: UUID
+    profile_id: UUID = Field(validation_alias="id") # DB의 'id'를 'profile_id'로 읽어옴
     user_id: UUID
     streak_days: int = 0
     total_points: int = 0

@@ -15,7 +15,7 @@ app = FastAPI(title="Mirror AI Backend")
 # 허용할 프론트엔드 도메인 목록
 origins = [
     "http://localhost:3000",          # 로컬 개발 환경 (React/Next.js)
-    "http://127.0.0.1:3000"
+    "https://mirror123.vercel.app"
 ]
 
 app.add_middleware(
