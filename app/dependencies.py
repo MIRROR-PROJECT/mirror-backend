@@ -26,7 +26,7 @@ async def get_current_user(authorization: str = Header(None)) -> str:
         payload = jwt.decode(
             token, 
             SUPABASE_JWT_SECRET, 
-            algorithms=["HS256"], 
+            algorithms=["ES256", "HS256"],
             options={"verify_aud": False}
         )
         
