@@ -42,3 +42,9 @@ class ProfileCreateRequest(BaseModel):
 class StyleQuizRequest(BaseModel):
     user_id: uuid.UUID
     cognitive_type: CognitiveType
+
+class StudentProfileResponse(BaseResponse[ProfileResponseData]):
+    pass
+
+class CommonResponse(BaseResponse[Any]):
+    pass
