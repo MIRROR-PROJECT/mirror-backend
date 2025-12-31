@@ -9,7 +9,7 @@ router = APIRouter(prefix="/setup", tags=["Step 1: 초기 설정"])
 @router.post("/basic-info", response_model=schemas.StudentProfileResponse, status_code=status.HTTP_201_CREATED)
 def create_student_basic_info(
     request: schemas.ProfileCreateRequest, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id) # 💡 로그인 여부 확인
 ):
     """
