@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from fastapi import Header, HTTPException, Depends
 from jose import jwt
+import json
 
 load_dotenv()
 
@@ -10,36 +11,26 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
 # 💡 이것이 API 라우터에서 'Depends'로 사용할 의존성 함수입니다.
 async def get_current_user(authorization: str = Header(None)) -> str:
-    """
-    HTTP Header에서 토큰을 추출하고 유효성을 검사하여 user_id(sub)를 반환합니다.
-    """
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401, 
-            detail="인증 헤더가 누락되었거나 형식이 올바르지 않습니다. (Bearer token 필요)"
-        )
+        raise HTTPException(status_code=401, detail="인증 헤더 누락")
     
     token = authorization.replace("Bearer ", "")
     
     try:
-        # 토큰 해독 및 검증
+        # 💡 Render에 넣은 JSON 텍스트를 파이썬 딕셔너리로 변환
+        jwk_key = json.loads(SUPABASE_JWT_SECRET)
+        
+        # 💡 변환된 jwk_key를 사용하여 ES256 알고리즘으로 해독
         payload = jwt.decode(
             token, 
-            SUPABASE_JWT_SECRET, 
-            algorithms=["HS256"],
+            jwk_key, 
+            algorithms=["ES256"], 
             options={"verify_aud": False}
         )
         
         user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="토큰에 유저 식별 정보가 없습니다.")
-            
-        return user_id  # 성공 시 유저 UUID 반환
+        return user_id
         
     except Exception as e:
-        # 실제 에러 내용을 로그에 찍고, 프론트에도 보내서 확인합니다.
-        print(f"DEBUG AUTH ERROR: {str(e)}")
-        raise HTTPException(
-            status_code=401, 
-            detail=f"인증 실패: {str(e)}" # 💡 이 메시지가 프론트에 뭐라고 뜨는지 알려주세요!
-        )
+        # 에러가 나면 어떤 에러인지 확인할 수 있게 메시지 유지
+        raise HTTPException(status_code=401, detail=f"인증 실패: {str(e)}")
