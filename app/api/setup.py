@@ -41,39 +41,78 @@ router = APIRouter(prefix="/setup", tags=["Step 1: 초기 설정"])
 #     db.add(new_profile)
 #     db.commit()
 #     db.refresh(new_profile)
-def create_student_basic_info(request: schemas.ProfileCreateRequest, db: Session = Depends(get_db), ...):
-    # 1. 먼저 User 테이블에 이 ID가 있는지 조회
+def create_student_basic_info(
+    request: schemas.ProfileCreateRequest, 
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user)
+):
+    """
+    [Step 1] 학생 기본 정보 등록
+    - 유저가 없으면 생성하고, 프로필을 연결합니다.
+    """
+    
+    # 1. [핵심] User 테이블에 해당 유저가 있는지 확인 및 강제 생성
+    # 수파베이스 로그인은 성공했지만 우리 DB에 없을 경우를 대비합니다.
     user = db.query(models.User).filter(models.User.id == request.user_id).first()
-
-    # 2. 없으면? 강제로 'users' 테이블에 먼저 INSERT (이게 핵심!)
+    
     if not user:
+        # 유저가 없으면 새로 생성 (부모 레코드 생성)
+        # email과 name은 request에 포함시키거나 토큰에서 가져와야 합니다.
         new_user = models.User(
             id=request.user_id,
-            email="social_user@example.com", # 원래는 토큰에서 추출해야 함
-            name="Unknown" # 혹은 request에서 받기
+            email=getattr(request, 'email', f"user_{str(request.user_id)[:8]}@example.com"), # 임시 이메일 처리
+            name=getattr(request, 'name', "신규학생"),
+            role="STUDENT"
         )
         db.add(new_user)
         try:
-            db.flush() # commit 전 DB에 유저 존재를 알림
+            db.flush() # Commit 전 단계에서 ID를 DB에 등록 (외래 키 연결용)
         except Exception as e:
             db.rollback()
-            return {"message": "유저 생성 실패"}
+            return schemas.StudentProfileResponse.fail_res(
+                message=f"유저 레코드 생성 실패: {str(e)}",
+                code=500
+            )
 
-    # 3. 이제 유저가 확실히 있으니 프로필 생성 가능
-    new_profile = models.StudentProfile(
-        user_id=request.user_id,
-        school_grade=request.school_grade,
-        # ... 나머지 필드
-    )
-    db.add(new_profile)
-    db.commit() # 이제 ForeignKey 에러가 나지 않습니다.
+    # 2. 프로필 중복 체크
+    existing_profile = db.query(models.StudentProfile).filter(
+        models.StudentProfile.user_id == request.user_id
+    ).first()
+    
+    if existing_profile:
+        return schemas.StudentProfileResponse.fail_res(
+            message="해당 유저에 대한 프로필이 이미 존재합니다.",
+            code=400
+        )
 
-    # 3. 공통 응답 규격에 맞춰 반환
-    return schemas.StudentProfileResponse.success_res(
-        data=schemas.ProfileResponseData.from_orm(new_profile),
-        message="기본 정보 등록 완료",
-        code=201
-    )
+    # 3. 프로필 생성
+    try:
+        new_profile = models.StudentProfile(
+            user_id=request.user_id,
+            school_grade=request.school_grade,
+            semester=request.semester,
+            subjects=request.subjects,
+            # 모델 정의에 따라 기본값들 설정
+            streak_days=0,
+            total_points=0
+        )
+        
+        db.add(new_profile)
+        db.commit() # 부모(User)와 자식(Profile)이 동시에 영구 저장됨
+        db.refresh(new_profile)
+
+        return schemas.StudentProfileResponse.success_res(
+            data=schemas.ProfileResponseData.from_orm(new_profile),
+            message="유저 및 프로필 등록 완료",
+            code=201
+        )
+
+    except Exception as e:
+        db.rollback()
+        return schemas.StudentProfileResponse.fail_res(
+            message=f"데이터 저장 중 오류 발생: {str(e)}",
+            code=500
+        )
 
 @router.post("/style-quiz", response_model=schemas.BaseResponse)
 async def store_style_quiz(
