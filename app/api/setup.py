@@ -10,6 +10,7 @@ router = APIRouter(prefix="/setup", tags=["Step 1: 초기 설정"])
 def create_student_basic_info(
     request: schemas.ProfileCreateRequest, 
     db: Session = Depends(get_db)
+    current_user_id: str = Depends(get_current_user_id) # 💡 로그인 여부 확인
 ):
     """
     [Step 1] 학생 기본 정보 등록
@@ -51,7 +52,10 @@ def create_student_basic_info(
 temp_quiz_store = {}
 
 @router.post("/style-quiz", response_model=schemas.BaseResponse, status_code=status.HTTP_201_CREATED)
-async def store_style_quiz(request: schemas.StyleQuizRequest):
+async def store_style_quiz(
+    request: schemas.StyleQuizRequest,
+    current_user_id: str = Depends(get_current_user) # 신분증 검사 및 ID 추출
+    ):
     """
     [Step 2] 인지성향 질답 임시 저장 API
     """
