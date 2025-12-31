@@ -16,11 +16,12 @@ def get_current_user_id(authorization: str = Header(None)):
         payload = jwt.decode(
             token, 
             SUPABASE_JWT_SECRET, 
-            algorithms=["ES256"], 
+            algorithms=["HS256"], 
             options={"verify_aud": False}
         )
         
         # 유저의 UUID(id) 반환
         return payload["sub"] 
-    except Exception:
-        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+    except Exception as e:
+        # 에러 원인을 명확히 보기 위해 디버깅 메시지를 포함합니다.
+        raise HTTPException(status_code=401, detail=f"인증 실패: {str(e)}")
