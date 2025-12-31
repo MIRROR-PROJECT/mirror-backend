@@ -16,7 +16,7 @@ def get_current_user_id(authorization: str = Header(None)):
         payload = jwt.decode(
             token, 
             SUPABASE_JWT_SECRET, 
-            algorithms=["ES256"], 
+            algorithms=["ES256", "HS256"], 
             options={"verify_aud": False}
         )
         
