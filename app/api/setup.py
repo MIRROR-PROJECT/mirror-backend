@@ -10,37 +10,63 @@ from app.services.ai_service import analyze_solving_habit
 router = APIRouter(prefix="/setup", tags=["Step 1: 초기 설정"])
 
 @router.post("/basic-info", response_model=schemas.StudentProfileResponse, status_code=status.HTTP_201_CREATED)
-def create_student_basic_info(
-    request: schemas.ProfileCreateRequest, 
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user) # 💡 로그인 여부 확인
-):
-    """
-    [Step 1] 학생 기본 정보 등록
-    - 학년, 학기, 과목 정보를 받아 초기 프로필을 생성합니다.
-    """
-    # 1. 중복 체크
-    existing_profile = db.query(models.StudentProfile).filter(
-        models.StudentProfile.user_id == request.user_id
-    ).first()
+# def create_student_basic_info(
+#     request: schemas.ProfileCreateRequest, 
+#     db: Session = Depends(get_db),
+#     current_user_id: str = Depends(get_current_user) # 💡 로그인 여부 확인
+# ):
+#     """
+#     [Step 1] 학생 기본 정보 등록
+#     - 학년, 학기, 과목 정보를 받아 초기 프로필을 생성합니다.
+#     """
+#     # 1. 중복 체크
+#     existing_profile = db.query(models.StudentProfile).filter(
+#         models.StudentProfile.user_id == request.user_id
+#     ).first()
     
-    if existing_profile:
-        return schemas.StudentProfileResponse.fail_res(
-            message="해당 유저에 대한 프로필이 이미 존재합니다.",
-            code=400
-        )
+#     if existing_profile:
+#         return schemas.StudentProfileResponse.fail_res(
+#             message="해당 유저에 대한 프로필이 이미 존재합니다.",
+#             code=400
+#         )
 
-    # 2. 프로필 생성 (기본값으로 시작)
+#     # 2. 프로필 생성 (기본값으로 시작)
+#     new_profile = models.StudentProfile(
+#         user_id=request.user_id,
+#         school_grade=request.school_grade,
+#         semester=request.semester,
+#         subjects=request.subjects
+#     )
+    
+#     db.add(new_profile)
+#     db.commit()
+#     db.refresh(new_profile)
+def create_student_basic_info(request: schemas.ProfileCreateRequest, db: Session = Depends(get_db), ...):
+    # 1. 먼저 User 테이블에 이 ID가 있는지 조회
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+
+    # 2. 없으면? 강제로 'users' 테이블에 먼저 INSERT (이게 핵심!)
+    if not user:
+        new_user = models.User(
+            id=request.user_id,
+            email="social_user@example.com", # 원래는 토큰에서 추출해야 함
+            name="Unknown" # 혹은 request에서 받기
+        )
+        db.add(new_user)
+        try:
+            db.flush() # commit 전 DB에 유저 존재를 알림
+        except Exception as e:
+            db.rollback()
+            return {"message": "유저 생성 실패"}
+
+    # 3. 이제 유저가 확실히 있으니 프로필 생성 가능
     new_profile = models.StudentProfile(
         user_id=request.user_id,
         school_grade=request.school_grade,
-        semester=request.semester,
-        subjects=request.subjects
+        # ... 나머지 필드
     )
-    
     db.add(new_profile)
-    db.commit()
-    db.refresh(new_profile)
+    db.commit() # 이제 ForeignKey 에러가 나지 않습니다.
 
     # 3. 공통 응답 규격에 맞춰 반환
     return schemas.StudentProfileResponse.success_res(

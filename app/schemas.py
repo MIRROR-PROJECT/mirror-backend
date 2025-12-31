@@ -43,8 +43,11 @@ class StyleQuizRequest(BaseModel):
     user_id: uuid.UUID
     cognitive_type: CognitiveType
 
+# --- [응답 모델] ---
 class StudentProfileResponse(BaseResponse[ProfileResponseData]):
+    """Step 1 응답: 프로필 데이터 포함"""
     pass
 
 class CommonResponse(BaseResponse[Any]):
+    """Step 3 응답: 분석 결과 등 가변 데이터 포함"""
     pass
