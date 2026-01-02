@@ -366,8 +366,8 @@ def get_today_mission(
     current_user_id: str = Depends(get_current_user)
 ):
     """
-    [대시보드] 오늘의 미션 조회
-    - 오늘 날짜에 해당하는 DailyPlan과 Task 목록
+    [대시보드] 오늘의 미션 조회 (타임테이블 형식)
+    - 오늘 요일의 WeeklyRoutine 시간대에 Task를 배치
     """
     
     # 1. 학생 프로필 조회
@@ -381,64 +381,197 @@ def get_today_mission(
             code=404
         )
     
-    # 2. 오늘 날짜의 DailyPlan 조회
+    # 2. 오늘 날짜 및 요일
     today = date.today()
+    day_map_reverse = {
+        0: "MON", 1: "TUE", 2: "WED", 3: "THU",
+        4: "FRI", 5: "SAT", 6: "SUN"
+    }
+    today_day_code = day_map_reverse[today.weekday()]
+    
+    # 3. 오늘 요일의 WeeklyRoutine 조회
+    today_routines = db.query(models.WeeklyRoutine).filter(
+        models.WeeklyRoutine.student_id == profile.id,
+        models.WeeklyRoutine.day_of_week == today_day_code
+    ).order_by(models.WeeklyRoutine.start_time).all()
+    
+    # 4. 오늘 날짜의 DailyPlan 조회
     daily_plan = db.query(models.DailyPlan).filter(
         models.DailyPlan.student_id == profile.id,
         models.DailyPlan.plan_date == today
     ).first()
     
-    # 3. 미션이 없는 경우
-    if not daily_plan:
-        return schemas.TodayMissionResponse.success_res(
-            data=schemas.TodayMissionData(
-                mission_date=today.strftime("%Y-%m-%d"),
-                mission_title=None,
-                total_minutes=0,
-                completed_minutes=0,
-                completion_rate=0.0,
-                tasks=[]
-            ),
-            message="오늘의 미션이 없습니다.",
-            code=200
-        )
+    # 5. Task 목록 조회 (sequence 순서대로)
+    tasks = []
+    if daily_plan:
+        tasks = db.query(models.Task).filter(
+            models.Task.plan_id == daily_plan.id
+        ).order_by(models.Task.sequence).all()
     
-    # 4. Task 목록 조회 (sequence 순서대로)
-    tasks = db.query(models.Task).filter(
-        models.Task.plan_id == daily_plan.id
-    ).order_by(models.Task.sequence).all()
+    # 6. 시간대별 스케줄 생성
+    schedule = []
+    task_index = 0
     
-    # 5. 완료율 계산 (체크리스트 기반)
-    total_task_count = len(tasks)
-    completed_task_count = sum(1 for t in tasks if t.is_completed)
-    completion_rate = (completed_task_count / total_task_count * 100) if total_task_count > 0 else 0.0
+    for routine in today_routines:
+        # 시간대 생성 (1시간 단위)
+        current_time = datetime.combine(today, routine.start_time)
+        end_time = datetime.combine(today, routine.end_time)
+        
+        while current_time < end_time:
+            time_slot_str = current_time.strftime("%H:%M")
+            
+            # 해당 시간대에 배치할 Task 찾기
+            if task_index < len(tasks):
+                task = tasks[task_index]
+                
+                # Task 데이터 생성
+                task_item = schemas.ScheduleTaskItem(
+                    task_id=task.id,
+                    category=task.category,
+                    title=task.title,
+                    subtitle="클릭하여 완료 표시",
+                    assigned_minutes=task.assigned_minutes,
+                    is_completed=task.is_completed,
+                    status="완료" if task.is_completed else "진행 가능"
+                )
+                
+                task_index += 1
+            else:
+                # Task가 없으면 "일정 없음"
+                task_item = schemas.ScheduleTaskItem(
+                    task_id=uuid.uuid4(),  # 임시 ID
+                    category="일정 없음",
+                    title="일정 없음",
+                    subtitle="나중 분양 선택 중 (1시간)",
+                    assigned_minutes=60,
+                    is_completed=False,
+                    status="잠김"
+                )
+            
+            schedule.append(schemas.TimeSlotSchedule(
+                time_slot=time_slot_str,
+                task=task_item
+            ))
+            
+            # 다음 시간대로 (1시간 증가)
+            current_time += timedelta(hours=1)
+    
+    # 7. 완료율 계산 (체크리스트 기반)
+    if tasks:
+        total_task_count = len(tasks)
+        completed_task_count = sum(1 for t in tasks if t.is_completed)
+        completion_rate = (completed_task_count / total_task_count * 100)
+    else:
+        completion_rate = 0.0
     
     # 총 목표 시간
-    total_minutes = daily_plan.target_minutes or sum(t.assigned_minutes for t in tasks)
+    total_minutes = daily_plan.target_minutes if daily_plan else sum(r.total_minutes or 0 for r in today_routines)
     
-    # 6. 응답 데이터 생성
-    task_items = [
-        schemas.TodayTaskItem(
-            task_id=task.id,
-            category=task.category,
-            title=task.title,
-            assigned_minutes=task.assigned_minutes,
-            is_completed=task.is_completed
-        )
-        for task in tasks
-    ]
-    
+    # 8. 응답 생성
     response_data = schemas.TodayMissionData(
         mission_date=today.strftime("%Y-%m-%d"),
-        mission_title=daily_plan.title,
+        mission_title=daily_plan.title if daily_plan else "오늘의 학습 시간표",
         total_minutes=total_minutes,
-        completed_minutes=completed_minutes,
         completion_rate=round(completion_rate, 1),
-        tasks=task_items
+        schedule=schedule
     )
     
     return schemas.TodayMissionResponse.success_res(
         data=response_data,
-        message="오늘의 미션 조회 성공",
+        message="오늘의 학습 시간표 조회 성공",
         code=200
     )
+
+# ================================================================================================================================
+# ================================================================================================================================
+
+@router.get("/recent-ranking", response_model=schemas.RecentRankingResponse, status_code=status.HTTP_200_OK)
+def get_recent_ranking(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user)
+):
+    """
+    [대시보드] 실시간 랭킹 조회
+    - 같은 학년 학생들의 포인트 기준 랭킹
+    - 자동으로 같은 학년만 필터링
+    """
+    
+    # 1. 현재 학생 프로필 조회
+    my_profile = db.query(models.StudentProfile).filter(
+        models.StudentProfile.user_id == current_user_id
+    ).first()
+    
+    if not my_profile:
+        return schemas.RecentRankingResponse.fail_res(
+            message="학생 프로필을 찾을 수 없습니다.",
+            code=404
+        )
+    
+    # 2. 같은 학년 학생들의 포인트 랭킹 조회 (자동 필터링)
+    same_grade_profiles = db.query(
+        models.StudentProfile.id,
+        models.StudentProfile.user_id,
+        models.StudentProfile.total_points
+    ).filter(
+        models.StudentProfile.school_grade == my_profile.school_grade  # 같은 학년만!
+    ).order_by(
+        models.StudentProfile.total_points.desc()
+    ).limit(limit).all()
+    
+    # 3. 내 순위 찾기 (같은 학년 내에서)
+    my_rank = 0
+    for idx, p in enumerate(same_grade_profiles, 1):
+        if p.id == my_profile.id:
+            my_rank = idx
+            break
+    
+    # 내가 limit 밖에 있으면 같은 학년 전체에서 순위 계산
+    if my_rank == 0:
+        higher_count = db.query(models.StudentProfile).filter(
+            models.StudentProfile.school_grade == my_profile.school_grade,
+            models.StudentProfile.total_points > my_profile.total_points
+        ).count()
+        my_rank = higher_count + 1
+    
+    # 4. 유저 정보 조회하여 익명화
+    recent_activities = []
+    for idx, p in enumerate(same_grade_profiles, 1):
+        user = db.query(models.User).filter(models.User.id == p.user_id).first()
+        
+        # 익명화: 본인이 아니면 첫 글자만
+        if p.id == my_profile.id:
+            # 본인: 전체 이름 표시
+            display_name = user.name if user else f"User_{str(p.id)[:8]}"
+        else:
+            # 다른 사람: 첫 글자만 (예: "김", "이")
+            if user and user.name:
+                display_name = user.name[0]
+            else:
+                display_name = f"User_{str(p.id)[:8]}"
+        
+        recent_activities.append(schemas.RecentRankingItem(
+            rank=idx,
+            user_id=display_name,
+            points=p.total_points,
+            points_change=f"+{p.total_points}pts",
+            is_me=(p.id == my_profile.id)
+        ))
+    
+    # 5. 응답 생성
+    response_data = schemas.RecentRankingData(
+        my_rank=my_rank,
+        my_points=my_profile.total_points,
+        recent_activities=recent_activities
+    )
+    
+    return schemas.RecentRankingResponse.success_res(
+        data=response_data,
+        message="실시간 랭킹 조회 성공",
+        code=200
+    )
+
+# ================================================================================================================================
+# ================================================================================================================================
+
+

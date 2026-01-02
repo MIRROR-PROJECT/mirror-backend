@@ -379,53 +379,114 @@ class DashboardResponse(BaseResponse[DashboardSummaryData]):
     """GET /my/dashboard 응답"""
     pass
 
-class TodayTaskItem(BaseModel):
-    """오늘의 과제 항목"""
-    task_id: UUID = Field(..., description="과제 ID")
-    category: str = Field(..., description="과목명")
+class ScheduleTaskItem(BaseModel):
+    """시간대(TimeSlot) 내부에 들어갈 상세 과제 정보"""
+    task_id: UUID = Field(..., description="과제 고유 ID")
+    category: str = Field(..., description="과목명 (예: 수학, 일정 없음)")
     title: str = Field(..., description="과제 제목")
+    subtitle: str = Field(..., description="부제목 (예: 클릭하여 완료 표시)")
     assigned_minutes: int = Field(..., description="할당 시간 (분)")
     is_completed: bool = Field(..., description="완료 여부")
+    status: str = Field(..., description="상태 (완료, 잠김, 진행 가능)")
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_schema_extra={
-            "example": {
-                "task_id": "task-001-uuid",
-                "category": "수학",
-                "title": "워밍업: 지난 오답 3문제",
-                "assigned_minutes": 10,
-                "is_completed": False
-            }
-        }
-    )
+    model_config = ConfigDict(from_attributes=True)
 
+class TimeSlotSchedule(BaseModel):
+    """명세서의 schedule 배열 요소 (시간 + 과제 객체)"""
+    time_slot: str = Field(..., description="시간대 (HH:MM)")
+    task: Optional[ScheduleTaskItem] = Field(None, description="해당 시간대의 과제 (없으면 null)")
+
+    model_config = ConfigDict(from_attributes=True)
 
 class TodayMissionData(BaseModel):
-    """오늘의 미션 데이터"""
+    """오늘의 미션 데이터 (최상위 구조)"""
     mission_date: str = Field(..., description="미션 날짜 (YYYY-MM-DD)")
     mission_title: Optional[str] = Field(None, description="미션 제목")
     total_minutes: int = Field(..., description="총 목표 시간 (분)")
-    completed_minutes: int = Field(..., description="완료한 시간 (분)")
     completion_rate: float = Field(..., description="완료율 (0-100)")
-    tasks: List[TodayTaskItem] = Field(..., description="과제 목록")
+    # 프론트가 요구한 필드명 'schedule'
+    schedule: List[TimeSlotSchedule] = Field(..., description="시간대별 스케줄 리스트")
 
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
             "example": {
                 "mission_date": "2026-01-02",
-                "mission_title": "지수함수 완전 정복",
+                "mission_title": "오늘의 학습 시간표",
                 "total_minutes": 240,
-                "completed_minutes": 0,
                 "completion_rate": 0,
-                "tasks": [
+                "schedule": [
                     {
-                        "task_id": "task-001-uuid",
-                        "category": "수학",
-                        "title": "워밍업: 지난 오답 3문제",
-                        "assigned_minutes": 10,
-                        "is_completed": False
+                        "time_slot": "09:00",
+                        "task": {
+                            "task_id": "task-001-uuid",
+                            "category": "응용 문제 연습",
+                            "title": "응용 문제 연습",
+                            "subtitle": "클릭하여 완료 표시",
+                            "assigned_minutes": 60,
+                            "is_completed": False,
+                            "status": "진행 가능"
+                        }
+                    }
+                ]
+            }
+        }
+    )
+
+class TodayMissionResponse(BaseResponse[TodayMissionData]):
+    """GET /my/missions/today 응답 스키마"""
+    pass
+
+
+## 실시간 랭킹 조회
+class RecentRankingItem(BaseModel):
+    """실시간 랭킹 항목"""
+    rank: int = Field(..., description="순위")
+    user_id: str = Field(..., description="사용자 ID (익명화)")
+    points: int = Field(..., description="포인트")
+    points_change: str = Field(..., description="포인트 변화 (예: +90pts)")
+    is_me: bool = Field(..., description="본인 여부")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "rank": 1,
+                "user_id": "User_234",
+                "points": 90,
+                "points_change": "+90pts",
+                "is_me": True
+            }
+        }
+    )
+
+
+class RecentRankingData(BaseModel):
+    """실시간 랭킹 데이터"""
+    my_rank: int = Field(..., description="내 순위 (같은 학년 내)")
+    my_points: int = Field(..., description="내 포인트")
+    recent_activities: List[RecentRankingItem] = Field(..., description="최근 활동 목록")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "my_rank": 1,
+                "my_points": 90,
+                "recent_activities": [
+                    {
+                        "rank": 1,
+                        "user_id": "User_234",
+                        "points": 90,
+                        "points_change": "+90pts",
+                        "is_me": True
+                    },
+                    {
+                        "rank": 2,
+                        "user_id": "B",
+                        "points": 85,
+                        "points_change": "+85pts",
+                        "is_me": False
                     }
                 ]
             }
@@ -433,6 +494,8 @@ class TodayMissionData(BaseModel):
     )
 
 
-class TodayMissionResponse(BaseResponse[TodayMissionData]):
-    """GET /my/missions/today 응답"""
+class RecentRankingResponse(BaseResponse[RecentRankingData]):
+    """GET /my/recent-ranking 응답"""
     pass
+
+
