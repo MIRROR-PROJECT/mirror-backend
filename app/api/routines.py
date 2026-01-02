@@ -4,9 +4,9 @@ from typing import List
 from uuid import UUID
 import datetime
 
-from .database import get_db
-from .models import WeeklyRoutine, StudentProfile
-from .schemas import BaseResponse, RoutineCreateRequest
+from app.database import get_db
+from app.models import WeeklyRoutine, StudentProfile
+from app.schemas import BaseResponse, RoutineCreateRequest
 
 router = APIRouter(
     prefix="/routines",
