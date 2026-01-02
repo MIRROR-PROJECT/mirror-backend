@@ -105,7 +105,7 @@ async def store_style_quiz(
 async def analyze_solving_image(
     user_id: uuid.UUID = Form(...),
     files: List[UploadFile] = File(...),
-    subjects: List[str] = Form(...), # ["KOREAN", "MATH"] 형태
+    subjects: List[str] = Form(...),  # ["KOREAN", "MATH"] 형태
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user)
 ):
@@ -117,10 +117,16 @@ async def analyze_solving_image(
         print(f"  파일 {idx}: {file.filename}, 크기: {file.size if hasattr(file, 'size') else 'unknown'}")
     print(f"{'='*50}\n")
 
-    # 1. 유저 성향(Step 2 결과) 조회
-    profile = db.query(models.StudentProfile).filter(models.StudentProfile.user_id == user_id).first()
+    # 1. 학생 프로필 조회
+    profile = db.query(models.StudentProfile).filter(
+        models.StudentProfile.user_id == user_id
+    ).first()
+    
     if not profile:
-        return schemas.CommonResponse.fail_res(message="프로필이 없습니다.", code=400)
+        return schemas.CommonResponse.fail_res(
+            message="프로필이 없습니다.", 
+            code=400
+        )
 
     analysis_results = []
 
@@ -129,10 +135,11 @@ async def analyze_solving_image(
             print(f"\n🔄 파일 {i+1}/{len(files)} 처리 시작")
             
             image_data = await file.read()
-            target_subject = subjects[i] if i < len(subjects) else "UNKNOWN"
+            target_subject = subjects[i] if i < len(subjects) else "ETC"
             
             print(f"🤖 AI 분석 호출... (과목: {target_subject})")
             
+            # AI 분석 실행
             analysis = await analyze_solving_habit(
                 image_data, 
                 profile.cognitive_type, 
@@ -141,23 +148,25 @@ async def analyze_solving_image(
             
             print(f"✅ AI 분석 완료: {analysis}")
             
-            new_log = models.AnalysisLog(
-                user_id=user_id,
+            # DiagnosisLog 테이블에 저장
+            new_log = models.DiagnosisLog(
+                student_id=profile.id,  # ⚠️ user_id가 아니라 student_id (StudentProfile의 id)
                 subject=target_subject,
-                extracted_content=analysis.get("extracted_content"),
-                detected_tags=analysis.get("detected_tags")
+                solution_habit_summary=analysis.get("extracted_content"),
+                detected_tags=analysis.get("detected_tags", []),
+                # image_url=None  # 나중에 이미지 저장 기능 추가 시 사용
             )
             db.add(new_log)
-            db.flush()
+            db.flush()  # ID 생성
 
             analysis_results.append({
-                "analysis_id": new_log.id,
+                "diagnosis_id": str(new_log.id),  # UUID를 문자열로 변환
                 "subject": target_subject,
-                "extracted_content": new_log.extracted_content,
+                "solution_habit_summary": new_log.solution_habit_summary,
                 "detected_tags": new_log.detected_tags
             })
             
-            print(f"✅ 파일 {i+1} 완료!\n")
+            print(f"✅ 파일 {i+1} 완료! (ID: {new_log.id})\n")
             
         except Exception as e:
             print(f"❌ 파일 {i+1} 처리 중 에러: {str(e)}")
@@ -167,9 +176,11 @@ async def analyze_solving_image(
             continue
 
     db.commit()
+    
+    print(f"🎉 총 {len(analysis_results)}개 파일 분석 완료!")
 
     return schemas.CommonResponse.success_res(
         data=analysis_results,
-        message=f"{len(analysis_results)}개 파일 분석 완료",
+        message=f"{len(analysis_results)}개 과목 분석 및 저장 완료",
         code=201
     )
