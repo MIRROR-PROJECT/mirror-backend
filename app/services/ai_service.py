@@ -57,7 +57,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
 
     try:
         response = client.chat.completions.create(
-            model="meta-llama/llama-3.2-11b-vision-instruct:free",
+            model="qwen/qwen-2.5-vl-7b-instruct:free",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {
