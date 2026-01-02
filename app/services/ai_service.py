@@ -8,8 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY")
+    api_key=os.getenv("OPENAI_API_KEY") # OpenAI 키로 변경
 )
 
 async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject: str):
@@ -58,7 +57,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
 
     try:
         response = client.chat.completions.create(
-            model="mistralai/mistral-small-3.1-24b-instruct:free", 
+            model="gpt-4o", 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}
