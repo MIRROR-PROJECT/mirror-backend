@@ -75,6 +75,7 @@ async def create_weekly_missions(
     """
     [내 학습 관리] 주간 학습 계획 생성
     """
+    print(f"DEBUG: Received start_date in request: {request.start_date if request else 'No request body'}")
     
     # 1. 프로필 조회
     profile_result = await db.execute(select(models.StudentProfile).filter(models.StudentProfile.user_id == current_user_id))
