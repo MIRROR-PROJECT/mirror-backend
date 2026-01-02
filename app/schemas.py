@@ -51,3 +51,15 @@ class StudentProfileResponse(BaseResponse[ProfileResponseData]):
 class CommonResponse(BaseResponse[Any]):
     """Step 3 응답: 분석 결과 등 가변 데이터 포함"""
     pass
+
+class AnalysisResultItem(BaseModel):
+    analysis_id: UUID
+    subject: str
+    extracted_content: str
+    detected_tags: List[str]
+
+    model_config = ConfigDict(from_attributes=True)
+
+# data: List[AnalysisResultItem] 구조가 됨
+class CommonResponse(BaseResponse[List[AnalysisResultItem]]):
+    pass
