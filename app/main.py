@@ -9,9 +9,11 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from openai import OpenAI
+from .database import engine
 
-# 서버 시작 시 테이블 생성
-models.Base.metadata.create_all(bind=database.engine)
+# 서버 시작 시 테이블 재생성
+models.Base.metadata.drop_all(bind=engine)
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mirror AI Backend")
 

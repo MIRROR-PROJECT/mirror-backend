@@ -63,7 +63,8 @@ class StudentProfile(Base):
     user = relationship("User", foreign_keys=[user_id])
     class_matches = relationship("StudentClassMatch", back_populates="student")
     weekly_routines = relationship("WeeklyRoutine", back_populates="student", cascade="all, delete-orphan")
-    analysis_logs = relationship("ProblemAnalysisLog", back_populates="student")
+    diagnosis_logs = relationship("DiagnosisLog", back_populates="student", cascade="all, delete-orphan")
+    problem_logs = relationship("ProblemAnalysisLog", back_populates="student", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="student")
 
 # 5. 주간 루틴
@@ -122,27 +123,51 @@ class LearningAnalytics(Base):
     achievement_rate = Column(Float)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-# 10. 문제 분석 결과
+# 10-1. 초기 진단 (학습 스타일 분석)
+class DiagnosisLog(Base):
+    __tablename__ = "diagnosis_logs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
+    
+    # 과목별 분석
+    subject = Column(String, nullable=False)  # "MATH", "KOREAN", "ENGLISH"
+    
+    # 풀이 습관 분석 결과
+    solution_habit_summary = Column(Text)  # "논리적 전개는 훌륭하나 중간 연산..."
+    detected_tags = Column(JSONB, default=[])  # ["논리적_전개", "계산_실수_주의"]
+    
+    # 메타데이터
+    image_url = Column(String, nullable=True)  # 원본 이미지 저장 경로
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # 관계
+    student = relationship("StudentProfile", back_populates="diagnosis_logs")
+
+
+# 10-2. 일반 학습 문제 분석
 class ProblemAnalysisLog(Base):
     __tablename__ = "problem_analysis_logs"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"), nullable=False)
     
-    # 분석 데이터
-    source_type = Column(String)  # "DIAGNOSIS" (초기 진단) 또는 "STUDY" (일반 학습)
-    extracted_text = Column(Text) # OCR로 추출된 문제 지문
-    detected_concepts = Column(JSONB) # 문제에 포함된 개념 ["로그함수", "방정식"]
-    difficulty_level = Column(String) # AI 판단 난이도 (상, 중, 하)
+    # 문제 정보
+    subject = Column(String, nullable=False)  # 과목 추가
+    extracted_text = Column(Text)  # OCR로 추출된 문제 지문
+    detected_concepts = Column(JSONB, default=[])  # ["로그함수", "방정식"]
+    difficulty_level = Column(String)  # "상", "중", "하"
     
-    # 학생 상태 판정
-    error_reason = Column(String) # AI가 분석한 오답 원인
-    ai_feedback_summary = Column(Text) # 해당 문제에 대한 AI의 핵심 코멘트
+    # 오답 분석
+    is_correct = Column(Boolean, default=False)  # 정답 여부 추가
+    error_reason = Column(String, nullable=True)  # 틀렸을 때만
+    ai_feedback_summary = Column(Text)  # 해당 문제 피드백
     
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-
-    # 관계 설정
-    student = relationship("StudentProfile", back_populates="analysis_logs")
+    # 메타데이터
+    solved_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # 관계
+    student = relationship("StudentProfile", back_populates="problem_logs")
     chat_messages = relationship("ChatMessage", back_populates="problem_log")
 
 # 11. 대화 맥락 저장

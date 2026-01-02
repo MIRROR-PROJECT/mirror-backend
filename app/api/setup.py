@@ -124,21 +124,23 @@ async def analyze_solving_image(
 
     analysis_results = []
 
-    try:
-        # 2. 전송된 파일 리스트 루프 실행
-        for i, file in enumerate(files):
+    for i, file in enumerate(files):
+        try:
+            print(f"\n🔄 파일 {i+1}/{len(files)} 처리 시작")
+            
             image_data = await file.read()
-            # 파일 순서에 맞는 과목명 매칭 (없으면 UNKNOWN)
             target_subject = subjects[i] if i < len(subjects) else "UNKNOWN"
-
-            # 3. AI 서비스 호출
+            
+            print(f"🤖 AI 분석 호출... (과목: {target_subject})")
+            
             analysis = await analyze_solving_habit(
                 image_data, 
                 profile.cognitive_type, 
                 target_subject
             )
-
-            # 4. 개별 결과 DB 저장
+            
+            print(f"✅ AI 분석 완료: {analysis}")
+            
             new_log = models.AnalysisLog(
                 user_id=user_id,
                 subject=target_subject,
@@ -146,25 +148,28 @@ async def analyze_solving_image(
                 detected_tags=analysis.get("detected_tags")
             )
             db.add(new_log)
-            db.flush() # ID 생성을 위해 flush
+            db.flush()
 
-            # 5. 응답용 리스트에 담기
             analysis_results.append({
                 "analysis_id": new_log.id,
                 "subject": target_subject,
                 "extracted_content": new_log.extracted_content,
                 "detected_tags": new_log.detected_tags
             })
+            
+            print(f"✅ 파일 {i+1} 완료!\n")
+            
+        except Exception as e:
+            print(f"❌ 파일 {i+1} 처리 중 에러: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # 에러가 나도 다음 파일 계속 처리
+            continue
 
-        db.commit()
-        
-        # 6. 최종 명세에 맞춰 List[Object] 형태로 반환
-        return schemas.CommonResponse.success_res(
-            data=analysis_results,
-            message="각 과목 분석 및 데이터 저장 완료",
-            code=201
-        )
+    db.commit()
 
-    except Exception as e:
-        db.rollback()
-        return schemas.CommonResponse.fail_res(message=f"오류 발생: {str(e)}", code=500)
+    return schemas.CommonResponse.success_res(
+        data=analysis_results,
+        message=f"{len(analysis_results)}개 파일 분석 완료",
+        code=201
+    )
