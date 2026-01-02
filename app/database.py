@@ -14,7 +14,13 @@ if not DATABASE_URL:
 ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
 # 비동기 엔진 및 세션 설정
-engine = create_async_engine(ASYNC_DATABASE_URL)
+engine = create_async_engine(
+    ASYNC_DATABASE_URL,
+    connect_args={
+        "prepared_statement_cache_size": 0,
+        "statement_cache_size": 0  # 두 개 다 넣어버리는 게 안전합니다.
+    }
+)
 SessionLocal = sessionmaker(
     autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
 )
