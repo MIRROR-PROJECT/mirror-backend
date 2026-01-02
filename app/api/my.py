@@ -347,3 +347,86 @@ def get_dashboard_summary(
         message="대시보드 요약 조회 성공",
         code=200
     )
+
+@router.get("/missions/today", response_model=schemas.TodayMissionResponse, status_code=status.HTTP_200_OK)
+def get_today_mission(
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user)
+):
+    """
+    [대시보드] 오늘의 미션 조회
+    - 오늘 날짜에 해당하는 DailyPlan과 Task 목록
+    """
+    
+    # 1. 학생 프로필 조회
+    profile = db.query(models.StudentProfile).filter(
+        models.StudentProfile.user_id == current_user_id
+    ).first()
+    
+    if not profile:
+        return schemas.TodayMissionResponse.fail_res(
+            message="학생 프로필을 찾을 수 없습니다.",
+            code=404
+        )
+    
+    # 2. 오늘 날짜의 DailyPlan 조회
+    today = date.today()
+    daily_plan = db.query(models.DailyPlan).filter(
+        models.DailyPlan.student_id == profile.id,
+        models.DailyPlan.plan_date == today
+    ).first()
+    
+    # 3. 미션이 없는 경우
+    if not daily_plan:
+        return schemas.TodayMissionResponse.success_res(
+            data=schemas.TodayMissionData(
+                mission_date=today.strftime("%Y-%m-%d"),
+                mission_title=None,
+                total_minutes=0,
+                completed_minutes=0,
+                completion_rate=0.0,
+                tasks=[]
+            ),
+            message="오늘의 미션이 없습니다.",
+            code=200
+        )
+    
+    # 4. Task 목록 조회 (sequence 순서대로)
+    tasks = db.query(models.Task).filter(
+        models.Task.plan_id == daily_plan.id
+    ).order_by(models.Task.sequence).all()
+    
+    # 5. 완료율 계산 (체크리스트 기반)
+    total_task_count = len(tasks)
+    completed_task_count = sum(1 for t in tasks if t.is_completed)
+    completion_rate = (completed_task_count / total_task_count * 100) if total_task_count > 0 else 0.0
+    
+    # 총 목표 시간
+    total_minutes = daily_plan.target_minutes or sum(t.assigned_minutes for t in tasks)
+    
+    # 6. 응답 데이터 생성
+    task_items = [
+        schemas.TodayTaskItem(
+            task_id=task.id,
+            category=task.category,
+            title=task.title,
+            assigned_minutes=task.assigned_minutes,
+            is_completed=task.is_completed
+        )
+        for task in tasks
+    ]
+    
+    response_data = schemas.TodayMissionData(
+        mission_date=today.strftime("%Y-%m-%d"),
+        mission_title=daily_plan.title,
+        total_minutes=total_minutes,
+        completed_minutes=completed_minutes,
+        completion_rate=round(completion_rate, 1),
+        tasks=task_items
+    )
+    
+    return schemas.TodayMissionResponse.success_res(
+        data=response_data,
+        message="오늘의 미션 조회 성공",
+        code=200
+    )

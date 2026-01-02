@@ -378,3 +378,61 @@ class DashboardSummaryData(BaseModel):
 class DashboardResponse(BaseResponse[DashboardSummaryData]):
     """GET /my/dashboard 응답"""
     pass
+
+class TodayTaskItem(BaseModel):
+    """오늘의 과제 항목"""
+    task_id: UUID = Field(..., description="과제 ID")
+    category: str = Field(..., description="과목명")
+    title: str = Field(..., description="과제 제목")
+    assigned_minutes: int = Field(..., description="할당 시간 (분)")
+    is_completed: bool = Field(..., description="완료 여부")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "task_id": "task-001-uuid",
+                "category": "수학",
+                "title": "워밍업: 지난 오답 3문제",
+                "assigned_minutes": 10,
+                "is_completed": False
+            }
+        }
+    )
+
+
+class TodayMissionData(BaseModel):
+    """오늘의 미션 데이터"""
+    mission_date: str = Field(..., description="미션 날짜 (YYYY-MM-DD)")
+    mission_title: Optional[str] = Field(None, description="미션 제목")
+    total_minutes: int = Field(..., description="총 목표 시간 (분)")
+    completed_minutes: int = Field(..., description="완료한 시간 (분)")
+    completion_rate: float = Field(..., description="완료율 (0-100)")
+    tasks: List[TodayTaskItem] = Field(..., description="과제 목록")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "mission_date": "2026-01-02",
+                "mission_title": "지수함수 완전 정복",
+                "total_minutes": 240,
+                "completed_minutes": 0,
+                "completion_rate": 0,
+                "tasks": [
+                    {
+                        "task_id": "task-001-uuid",
+                        "category": "수학",
+                        "title": "워밍업: 지난 오답 3문제",
+                        "assigned_minutes": 10,
+                        "is_completed": False
+                    }
+                ]
+            }
+        }
+    )
+
+
+class TodayMissionResponse(BaseResponse[TodayMissionData]):
+    """GET /my/missions/today 응답"""
+    pass
