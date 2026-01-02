@@ -20,8 +20,17 @@ def get_student_time_slots(
     - WeeklyRoutine 테이블에서 요일별 루틴을 조회하여 권장 학습 시간을 계산합니다.
     """
 
-    # current_user_id를 student_id로 사용
-    student_id = current_user_id
+    # current_user_id를 UUID로 변환
+    try:
+        student_id = uuid.UUID(current_user_id)
+    except ValueError:
+        return schemas.TimeSlotResponse.fail_res(
+            message="잘못된 사용자 ID 형식입니다.",
+            code=400
+        )
+    
+    # 디버깅: student_id 출력
+    print(f"Debug - student_id: {student_id}, type: {type(student_id)}")
     
     # 1. 학생 프로필 존재 확인
     profile = db.query(models.StudentProfile).filter(
