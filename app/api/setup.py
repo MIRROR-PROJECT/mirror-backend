@@ -109,6 +109,14 @@ async def analyze_solving_image(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user)
 ):
+    print(f"\n{'='*50}")
+    print(f"📥 받은 파일 개수: {len(files)}")
+    print(f"📚 받은 과목 개수: {len(subjects)}")
+    print(f"📚 과목 리스트: {subjects}")
+    for idx, file in enumerate(files):
+        print(f"  파일 {idx}: {file.filename}, 크기: {file.size if hasattr(file, 'size') else 'unknown'}")
+    print(f"{'='*50}\n")
+
     # 1. 유저 성향(Step 2 결과) 조회
     profile = db.query(models.StudentProfile).filter(models.StudentProfile.user_id == user_id).first()
     if not profile:

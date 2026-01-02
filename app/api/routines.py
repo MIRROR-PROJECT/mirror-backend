@@ -20,15 +20,15 @@ async def create_weekly_routines(
 ):
     """주간 루틴 등록"""
     
-    # 1. 학생 존재 여부 확인
+    # 1. user_id로 학생 프로필 찾기
     student = db.query(StudentProfile).filter(
-        StudentProfile.id == request.student_id
+        StudentProfile.user_id == request.user_id
     ).first()
     
     if not student:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"학생 ID {request.student_id}를 찾을 수 없습니다."
+            detail=f"유저 ID {request.user_id}에 해당하는 학생 프로필을 찾을 수 없습니다."
         )
     
     # 2. 새로운 루틴 생성

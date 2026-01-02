@@ -104,16 +104,6 @@ class RoutineBlockRequest(BaseModel):
         example=120,
         gt=0
     )
-    block_name: Optional[str] = Field(
-        None,
-        description="블록 이름 (예: '아침 자습', '수학 학원')",
-        example="수학 학원"
-    )
-    category: Optional[str] = Field(
-        None,
-        description="카테고리 (예: '수학', '영어', '자유학습')",
-        example="수학"
-    )
 
     @field_validator('start_time', 'end_time')
     @classmethod
@@ -134,67 +124,10 @@ class RoutineBlockRequest(BaseModel):
             raise ValueError("total_minutes는 0보다 커야 합니다.")
         return v
 
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "day_of_week": "MON",
-                "start_time": "18:00",
-                "end_time": "20:00",
-                "total_minutes": 120,
-                "block_name": "수학 학원",
-                "category": "수학"
-            }
-        }
-    )
-
 
 class RoutineCreateRequest(BaseModel):
-    """주간 루틴 등록 요청"""
-    student_id: UUID = Field(
-        ..., 
-        description="학생 고유 ID",
-        example="a3b5c7d9-1234-5678-90ab-cdef12345678"
-    )
-    routines: List[RoutineBlockRequest] = Field(
-        ..., 
-        description="시간 블록 배열 (같은 요일에 여러 블록 등록 가능)",
-        min_length=1
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "student_id": "a3b5c7d9-1234-5678-90ab-cdef12345678",
-                "routines": [
-                    {
-                        "day_of_week": "MON",
-                        "start_time": "09:00",
-                        "end_time": "11:00",
-                        "total_minutes": 120,
-                        "block_name": "오전 자습",
-                        "category": "자유학습"
-                    },
-                    {
-                        "day_of_week": "MON",
-                        "start_time": "18:00",
-                        "end_time": "20:00",
-                        "total_minutes": 120,
-                        "block_name": "수학 학원",
-                        "category": "수학"
-                    },
-                    {
-                        "day_of_week": "TUE",
-                        "start_time": "19:00",
-                        "end_time": "22:00",
-                        "total_minutes": 180,
-                        "block_name": "영어 학원",
-                        "category": "영어"
-                    }
-                ]
-            }
-        }
-    )
-
+    user_id: UUID = Field(..., description="유저 고유 ID")
+    routines: List[RoutineBlockRequest] = Field(..., description="시간 블록 배열")
 
 class RoutineItem(BaseModel):
     """루틴 블록 단일 항목 (응답용)"""
