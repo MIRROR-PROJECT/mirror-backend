@@ -58,7 +58,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
 
     try:
         response = client.chat.completions.create(
-            model="qwen/qwen-2.5-vl-7b-instruct:free", 
+            model="mistralai/mistral-small-3.1-24b-instruct:free", 
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}
