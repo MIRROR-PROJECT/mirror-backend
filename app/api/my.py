@@ -79,6 +79,9 @@ def get_student_time_slots(
         code=200
     )
 
+# ================================================================================================================================
+# ================================================================================================================================
+
 @router.post("/missions", response_model=schemas.MissionCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_weekly_missions(
     request: Optional[schemas.MissionCreateRequest] = None,
@@ -120,18 +123,16 @@ async def create_weekly_missions(
     
     print(f"✅ 주간 루틴 발견: {len(routines)}개 블록")
     
-    # 3. 풀이 습관 분석 데이터 확인
+    # 3. 풀이 습관 분석 데이터 조회 (선택 사항)
     diagnosis_logs = db.query(models.DiagnosisLog).filter(
         models.DiagnosisLog.student_id == profile.id
     ).all()
     
-    if not diagnosis_logs:
-        return schemas.MissionCreateResponse.fail_res(
-            message="풀이 습관 분석 데이터가 없습니다. 먼저 초기 진단을 완료해주세요.",
-            code=400
-        )
-    
-    print(f"✅ 풀이 습관 분석 데이터 발견: {len(diagnosis_logs)}개 과목")
+    # 풀이 습관 데이터가 있으면 활용, 없으면 인지 유형만으로 진행
+    if diagnosis_logs:
+        print(f"✅ 풀이 습관 분석 데이터 발견: {len(diagnosis_logs)}개 과목")
+    else:
+        print("ℹ️  풀이 습관 분석 데이터 없음 (인지 유형 기반으로 계획 생성)")
     
     # 4. 데이터 준비
     # 4-1. 학생 기본 정보
@@ -147,13 +148,21 @@ async def create_weekly_missions(
     }
     
     # 4-2. 풀이 습관 분석 텍스트 생성
-    solving_habits_text = "\n\n".join([
-        f"### {log.subject}\n"
-        f"- 풀이 습관 요약: {log.solution_habit_summary}\n"
-        f"- 감지된 태그: {log.detected_tags}"
-        for log in diagnosis_logs
-    ])
-    
+    if diagnosis_logs:
+        solving_habits_text = "\n\n".join([
+            f"### {log.subject}\n"
+            f"- 풀이 습관 요약: {log.solution_habit_summary}\n"
+            f"- 감지된 태그: {log.detected_tags}"
+            for log in diagnosis_logs
+        ])
+    else:
+        # 풀이 습관 데이터가 없는 경우 (사탐/과탐 등)
+        solving_habits_text = """
+        ### 풀이 습관 분석 없음 
+        풀이습관 분석 데이터는 국어 영어 수학에 한해 제공됩니다. 현재 학생은 이 3과목 중 어느 것도 선택하지 않고, 그 외의 과목을 선택한 것입니다.
+        인지 유형과 학습 스타일을 기반으로 현재 선택된 과목들에 대한 계획을 생성해주세요.
+        """
+            
     # 4-3. 주간 스케줄 텍스트 생성
     day_map = {
         "MON": "월요일", "TUE": "화요일", "WED": "수요일",
@@ -182,7 +191,7 @@ async def create_weekly_missions(
     
     print("\n📊 데이터 준비 완료")
     print(f"  - 인지 유형: {student_data['cognitive_type']}")
-    print(f"  - 분석된 과목: {len(diagnosis_logs)}개")
+    print(f"  - 분석된 과목: {len(diagnosis_logs)}개 (풀이 습관)")
     print(f"  - 루틴 블록: {len(routines)}개")
     
     # 5. AI로 주간 계획 생성
@@ -292,6 +301,9 @@ async def create_weekly_missions(
             message=f"계획 저장 중 오류가 발생했습니다: {str(e)}",
             code=500
         )
+
+# ================================================================================================================================
+# ================================================================================================================================
 
 @router.get("/dashboard", response_model=schemas.DashboardResponse, status_code=status.HTTP_200_OK)
 def get_dashboard_summary(
