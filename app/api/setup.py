@@ -160,9 +160,9 @@ async def analyze_solving_image(
             db.flush()  # ID 생성
 
             analysis_results.append({
-                "diagnosis_id": str(new_log.id),  # UUID를 문자열로 변환
+                "analysis_id": str(new_log.id),  # UUID를 문자열로 변환
                 "subject": target_subject,
-                "solution_habit_summary": new_log.solution_habit_summary,
+                "extracted_content": new_log.solution_habit_summary,
                 "detected_tags": new_log.detected_tags
             })
             
