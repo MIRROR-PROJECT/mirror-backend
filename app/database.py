@@ -21,8 +21,13 @@ engine = create_async_engine(
         "statement_cache_size": 0  # 두 개 다 넣어버리는 게 안전합니다.
     }
 )
+# 세션 설정 수정
 SessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+    autocommit=False, 
+    autoflush=False, 
+    bind=engine, 
+    class_=AsyncSession,
+    expire_on_commit=False  # 이 부분을 반드시 추가하세요!
 )
 
 Base = declarative_base()
