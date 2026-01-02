@@ -46,7 +46,7 @@ async def create_weekly_routines(
             
             # WeeklyRoutine 객체 생성
             new_routine = WeeklyRoutine(
-                student_id=request.student_id,
+                student_id=student_id,
                 day_of_week=routine_data.day_of_week,
                 start_time=start_time,
                 end_time=end_time,
