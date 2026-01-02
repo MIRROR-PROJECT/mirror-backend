@@ -63,9 +63,11 @@ class StudentProfile(Base):
     user = relationship("User", foreign_keys=[user_id])
     class_matches = relationship("StudentClassMatch", back_populates="student")
     weekly_routines = relationship("WeeklyRoutine", back_populates="student", cascade="all, delete-orphan")
+    daily_plans = relationship("DailyPlan", back_populates="student", cascade="all, delete-orphan")  
     diagnosis_logs = relationship("DiagnosisLog", back_populates="student", cascade="all, delete-orphan")
     problem_logs = relationship("ProblemAnalysisLog", back_populates="student", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="student")
+    analytics = relationship("LearningAnalytics", back_populates="student", cascade="all, delete-orphan")
 
 # 5. 주간 루틴
 class WeeklyRoutine(Base):
@@ -98,6 +100,7 @@ class DailyPlan(Base):
     target_minutes = Column(Integer) # 그날 목표로 하는 순공 시간
     is_completed = Column(Boolean, default=False) 
     
+    student = relationship("StudentProfile", back_populates="daily_plans")  
     tasks = relationship("Task", back_populates="plan", cascade="all, delete-orphan")
 
 # 7. 체크리스트 내의 개별 테스크
@@ -109,6 +112,7 @@ class Task(Base):
     title = Column(String)
     assigned_minutes = Column(Integer)
     is_completed = Column(Boolean, default=False)
+    completed_at = Column(DateTime, nullable=True)  # ← 추가!
     sequence = Column(Integer)
     
     plan = relationship("DailyPlan", back_populates="tasks")
@@ -122,6 +126,8 @@ class LearningAnalytics(Base):
     unit_name = Column(String)
     achievement_rate = Column(Float)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    student = relationship("StudentProfile", back_populates="analytics")  
 
 # 10-1. 초기 진단 (학습 스타일 분석)
 class DiagnosisLog(Base):

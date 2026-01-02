@@ -362,3 +362,19 @@ class WeeklyPlanData(BaseModel):
 class MissionCreateResponse(BaseResponse[WeeklyPlanData]):
     """POST /my/missions 응답"""
     pass
+
+# --- [대시보드 API 스키마] ---
+
+class DashboardSummaryData(BaseModel):
+    """대시보드 요약 정보"""
+    student_name: str = Field(..., description="학생 이름")
+    streak_days: int = Field(..., description="연속 학습 일수")
+    today_available_minutes: int = Field(..., description="오늘 가용 시간 (분)")
+    today_date: str = Field(..., description="오늘 날짜 (YYYY-MM-DD)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DashboardResponse(BaseResponse[DashboardSummaryData]):
+    """GET /my/dashboard 응답"""
+    pass

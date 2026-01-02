@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from app.database import get_db
 from app import models, schemas
@@ -292,3 +292,58 @@ async def create_weekly_missions(
             message=f"계획 저장 중 오류가 발생했습니다: {str(e)}",
             code=500
         )
+
+@router.get("/dashboard", response_model=schemas.DashboardResponse, status_code=status.HTTP_200_OK)
+def get_dashboard_summary(
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user)
+):
+    """
+    [대시보드] 요약 정보 조회
+    - 학생 이름, 스트릭, 오늘 가용 시간
+    """
+    
+    # 1. 학생 프로필 조회
+    profile = db.query(models.StudentProfile).filter(
+        models.StudentProfile.user_id == current_user_id
+    ).first()
+    
+    if not profile:
+        return schemas.DashboardResponse.fail_res(
+            message="학생 프로필을 찾을 수 없습니다.",
+            code=404
+        )
+    
+    # 2. 유저 정보 조회
+    user = db.query(models.User).filter(
+        models.User.id == current_user_id
+    ).first()
+    
+    # 3. 오늘 가용 시간 계산
+    today = datetime.now()
+    day_map_reverse = {
+        0: "MON", 1: "TUE", 2: "WED", 3: "THU", 
+        4: "FRI", 5: "SAT", 6: "SUN"
+    }
+    today_day_code = day_map_reverse[today.weekday()]
+    
+    today_routines = db.query(models.WeeklyRoutine).filter(
+        models.WeeklyRoutine.student_id == profile.id,
+        models.WeeklyRoutine.day_of_week == today_day_code
+    ).all()
+    
+    today_available_minutes = sum(r.total_minutes or 0 for r in today_routines)
+    
+    # 4. 응답 생성
+    response_data = schemas.DashboardSummaryData(
+        student_name=user.name if user else "학생",
+        streak_days=profile.streak_days,
+        today_available_minutes=today_available_minutes,
+        today_date=today.strftime("%Y-%m-%d")
+    )
+    
+    return schemas.DashboardResponse.success_res(
+        data=response_data,
+        message="대시보드 요약 조회 성공",
+        code=200
+    )
