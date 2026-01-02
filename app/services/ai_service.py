@@ -30,6 +30,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
     # Analysis Guidelines (세밀한 분석 지침)
     1. **시각적 증거 포착**: 펜의 흔적, 여백 활용 방식, 지문 내 밑줄 습관, 수식 전개 과정의 생략 여부 등을 면밀히 살피십시오.
     2. **과목 특수성 반영**: {subject} 과목 특유의 풀이 문법(수학의 등호 사용, 국어의 키워드 마킹 등)을 고려하십시오.
+    3. **빈 문제 처리**: 만약 문제지에 어떠한 흔적도 없는, 풀지 않은 문제로 보일 경우 문제 풀이 흔적이 없음을 extracted_content에 적어주고, detected_tags는 빈 리스트로 반환하십시오. 
 
     # Response Format (JSON 전용)
     반드시 다음의 한국어 JSON 구조로만 답변하십시오. 다른 설명은 배제하십시오. 다른 언어를 절대로 섞지마십시오.

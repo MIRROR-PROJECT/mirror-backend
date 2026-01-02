@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from . import models, schemas, database
 from .api import setup
+from .api import routines
 from .services import morphing
 import os
 from dotenv import load_dotenv
@@ -47,4 +48,4 @@ def root():
 
 # 라우터 등록
 app.include_router(setup.router)
-# app.include_router(home.router) 
+app.include_router(routines.router)
