@@ -35,6 +35,7 @@ class ProfileResponseData(BaseModel):
 # --- [요청 모델] ---
 class ProfileCreateRequest(BaseModel):
     user_id: UUID
+    student_name: str = Field(..., description="학생 이름", example="홍길동") # 추가
     school_grade: int
     semester: int
     subjects: List[str]
