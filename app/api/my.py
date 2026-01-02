@@ -74,28 +74,95 @@ async def create_weekly_missions(
 ):
     """
     [내 학습 관리] 주간 학습 계획 생성
-    - 학생의 인지 유형, 풀이 습관, 가용 시간을 분석하여 AI가 맞춤형 주간 계획을 생성합니다.
     """
     
-    # [기존 코드와 동일 - 생략...]
-    # profile, routines, diagnosis_logs, student_data, solving_habits_text, weekly_schedule_text 생성
-    # ai_response, summary_info 생성
+    # 1. 프로필 조회
+    profile_result = await db.execute(select(models.StudentProfile).filter(models.StudentProfile.user_id == current_user_id))
+    profile = profile_result.scalars().first()
     
-    # ========================================
-    # ✅ 여기부터 수정!
-    # ========================================
+    if not profile:
+        return schemas.MissionCreateResponse.fail_res(message="학생 프로필을 찾을 수 없습니다.", code=404)
+
+    # 2. 루틴 조회
+    routines_result = await db.execute(select(models.WeeklyRoutine).filter(models.WeeklyRoutine.student_id == profile.id))
+    routines = routines_result.scalars().all()
     
+    if not routines:
+        return schemas.MissionCreateResponse.fail_res(message="주간 루틴이 등록되지 않았습니다.", code=400)
+
+    # 3. 진단 로그 조회
+    diagnosis_logs_result = await db.execute(select(models.DiagnosisLog).filter(models.DiagnosisLog.student_id == profile.id))
+    diagnosis_logs = diagnosis_logs_result.scalars().all()
+
+    # 4. 유저 조회
+    user_result = await db.execute(select(models.User).filter(models.User.id == current_user_id))
+    user = user_result.scalars().first()
+    
+    # 5. student_data 준비
+    student_data = {
+        'student_id': str(profile.id),
+        'student_name': user.name if user else '학생',
+        'school_grade': profile.school_grade,
+        'semester': profile.semester,
+        'subjects': profile.subjects,
+        'cognitive_type': profile.cognitive_type.value,
+        'start_date': request.start_date if request else None
+    }
+    
+    # 6. 풀이 습관 텍스트
+    if diagnosis_logs:
+        solving_habits_text = "\n\n".join([
+            f"### {log.subject}\n- 풀이 습관 요약: {log.solution_habit_summary}\n- 감지된 태그: {log.detected_tags}"
+            for log in diagnosis_logs
+        ])
+    else:
+        solving_habits_text = "### 풀이 습관 분석 데이터 없음\n이미지 기반 풀이 습관 분석이 제공되지 않았습니다."
+
+    # 7. 주간 스케줄 텍스트
+    day_map = {"MON": "월요일", "TUE": "화요일", "WED": "수요일", "THU": "목요일", "FRI": "금요일", "SAT": "토요일", "SUN": "일요일"}
+    schedule_by_day = {}
+    for routine in routines:
+        day_kr = day_map.get(routine.day_of_week, routine.day_of_week)
+        if day_kr not in schedule_by_day:
+            schedule_by_day[day_kr] = []
+        schedule_by_day[day_kr].append(routine)
+    
+    weekly_schedule_text = ""
+    for day_kr in ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]:
+        if day_kr in schedule_by_day:
+            day_routines = schedule_by_day[day_kr]
+            total_min = sum(r.total_minutes or 0 for r in day_routines)
+            weekly_schedule_text += f"\n{day_kr}: 총 {total_min}분\n"
+            for idx, r in enumerate(day_routines, 1):
+                block_info = f"  - 블록{idx}: {r.start_time.strftime('%H:%M')}-{r.end_time.strftime('%H:%M')} ({r.total_minutes}분)"
+                if r.block_name:
+                    block_info += f" - {r.block_name}"
+                weekly_schedule_text += block_info + "\n"
+
+    # 8. AI 계획 생성
+    try:
+        ai_response = await generate_weekly_plan(
+            student_data=student_data,
+            solving_habits=solving_habits_text,
+            weekly_schedule=weekly_schedule_text
+        )
+    except Exception as e:
+        return schemas.MissionCreateResponse.fail_res(message=f"주간 계획 생성 중 오류: {str(e)}", code=500)
+    
+    # 9. ✅ 여기서 summary_info 계산!
+    summary_info = calculate_weekly_summary(ai_response)
+    
+    # 10. DB 저장 (7일치 DailyPlan + Task)
     try:
         start_date_str = summary_info['start_date']
         start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
         
         print(f"\n💾 7일치 DailyPlan 생성 시작 (시작일: {start_date})")
         
-        # ✅ 수정: 7일치 DailyPlan 생성
-        daily_plan_map = {}  # date -> plan_id 매핑
+        # ✅ 7일치 DailyPlan 생성
+        daily_plan_map = {}
         
         for day_index, day_plan_data in enumerate(ai_response['weekly_plan']):
-            # 각 날짜의 DailyPlan 생성
             current_date = start_date + timedelta(days=day_index)
             
             new_daily_plan = models.DailyPlan(
@@ -109,12 +176,11 @@ async def create_weekly_missions(
             await db.flush()
             
             daily_plan_map[current_date] = new_daily_plan.id
-            
-            print(f"  📅 DailyPlan 생성: {current_date} (ID: {new_daily_plan.id}, 제목: {new_daily_plan.title})")
+            print(f"  📅 {current_date} DailyPlan 생성 (ID: {new_daily_plan.id})")
         
-        print(f"\n✅ {len(daily_plan_map)}개 DailyPlan 생성 완료")
+        print(f"✅ {len(daily_plan_map)}개 DailyPlan 생성 완료\n")
         
-        # Task 생성 (각 날짜의 plan_id에 맞게)
+        # ✅ Task 생성 (각 날짜의 plan_id에 맞게)
         task_id_map = {}
         total_tasks = 0
         
@@ -122,11 +188,11 @@ async def create_weekly_missions(
             current_date = start_date + timedelta(days=day_index)
             plan_id = daily_plan_map[current_date]
             
-            print(f"\n  📋 {current_date} Task 생성:")
+            print(f"  📋 {current_date} Task 생성:")
             
             for task_data in day_plan_data['tasks']:
                 new_task = models.Task(
-                    plan_id=plan_id,  # ← 올바른 plan_id
+                    plan_id=plan_id,
                     category=task_data['category'],
                     title=task_data['title'],
                     assigned_minutes=task_data['assigned_minutes'],
@@ -139,7 +205,7 @@ async def create_weekly_missions(
                 task_id_map[task_data['sequence']] = new_task.id
                 total_tasks += 1
                 
-                print(f"    ➕ Task {task_data['sequence']}: {task_data['title']} ({task_data['assigned_minutes']}분)")
+                print(f"    ➕ {task_data['title']} ({task_data['assigned_minutes']}분)")
         
         await db.commit()
         print(f"\n✅ 총 {total_tasks}개 Task 저장 완료!")
@@ -151,7 +217,7 @@ async def create_weekly_missions(
         
         # 응답 생성
         response_data = schemas.WeeklyPlanData(
-            plan_id=daily_plan_map[start_date],  # 첫 번째 DailyPlan ID
+            plan_id=daily_plan_map[start_date],
             student_id=profile.id,
             start_date=summary_info['start_date'],
             end_date=summary_info['end_date'],
@@ -174,9 +240,10 @@ async def create_weekly_missions(
         import traceback
         traceback.print_exc()
         return schemas.MissionCreateResponse.fail_res(
-            message=f"계획 저장 중 오류가 발생했습니다: {str(e)}",
+            message=f"계획 저장 중 오류: {str(e)}",
             code=500
         )
+
 
 @router.get("/dashboard", response_model=schemas.DashboardResponse, status_code=status.HTTP_200_OK)
 async def get_dashboard_summary(
