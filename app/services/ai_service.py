@@ -1,5 +1,6 @@
 import os
 import base64
+import re
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -33,7 +34,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
     - 학생 성향: {cognitive_type} ({type_guide})
 
     # Task: [이미지 증거 기반 분석]
-    제공된 [{subject}] 풀이 이미지를 보고, 학생의 사전 성향인 [{cognitive_type}]이 실제 풀이 행동에서 어떻게 나타나는지 구체적인 '증거'를 찾아 분석하십시오.
+    제공된 [{subject}] 풀이 이미지를 보고, 학생의 사전 성향인 [{cognitive_type}]이 실제 풀이 행동에서 어떻게 나타나는지 구체적인 '증거'를 찾아 분석하십시오. 오로지 한국어로만 답해야합니다. only Korean!!!! 가장 중요합니다.
 
     # Analysis Guidelines (세밀한 분석 지침)
     1. **시각적 증거 포착**: 펜의 흔적, 여백 활용 방식, 지문 내 밑줄 습관, 수식 전개 과정의 생략 여부 등을 면밀히 살피십시오.
@@ -41,7 +42,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
     3. **과목 특수성 반영**: {subject} 과목 특유의 풀이 문법(수학의 등호 사용, 국어의 키워드 마킹 등)을 고려하십시오.
 
     # Response Format (JSON 전용)
-    반드시 다음의 한국어 JSON 구조로만 답변하십시오. 다른 설명은 배제하십시오.
+    반드시 다음의 한국어 JSON 구조로만 답변하십시오. 다른 설명은 배제하십시오. 다른 언어를 절대로 섞지마십시오.
     {{
         "extracted_content": "풀이 이미지에서 발견된 핵심 습관을 성향과 연결하여 2~3문장으로 깊이 있게 분석.",
         "detected_tags": ["이미지에서 포착된 핵심 특징 2~3개"]
