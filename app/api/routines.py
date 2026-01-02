@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from typing import List
 from uuid import UUID
 import datetime
@@ -16,14 +17,15 @@ router = APIRouter(
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_weekly_routines(
     request: RoutineCreateRequest,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """주간 루틴 등록"""
     
     # 1. user_id로 학생 프로필 찾기
-    student = db.query(StudentProfile).filter(
-        StudentProfile.user_id == request.user_id
-    ).first()
+    result = await db.execute(
+        select(StudentProfile).filter(StudentProfile.user_id == request.user_id)
+    )
+    student = result.scalars().first()
     
     if not student:
         raise HTTPException(
@@ -54,10 +56,14 @@ async def create_weekly_routines(
             )
             
             db.add(new_routine)
-            db.flush()
-            created_routine_ids.append(new_routine.id)
         
-        db.commit()
+        await db.flush()
+
+        for routine in db.new:
+            if isinstance(routine, WeeklyRoutine):
+                created_routine_ids.append(routine.id)
+        
+        await db.commit()
         
         return BaseResponse.success_res(
             data=created_routine_ids,
@@ -66,13 +72,13 @@ async def create_weekly_routines(
         )
         
     except ValueError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"시간 형식 오류: {str(e)}"
         )
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"루틴 등록 중 오류 발생: {str(e)}"

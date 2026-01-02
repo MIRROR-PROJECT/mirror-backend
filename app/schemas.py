@@ -50,9 +50,7 @@ class StudentProfileResponse(BaseResponse[ProfileResponseData]):
     """Step 1 응답: 프로필 데이터 포함"""
     pass
 
-class CommonResponse(BaseResponse[Any]):
-    """Step 3 응답: 분석 결과 등 가변 데이터 포함"""
-    pass
+
 
 class AnalysisResultItem(BaseModel):
     analysis_id: UUID
@@ -63,7 +61,7 @@ class AnalysisResultItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 # data: List[AnalysisResultItem] 구조가 됨
-class CommonResponse(BaseResponse[List[AnalysisResultItem]]):
+class AnalysisResponse(BaseResponse[List[AnalysisResultItem]]):
     pass
 
 # --- [주간 루틴 관련 스키마] ---
@@ -498,4 +496,21 @@ class RecentRankingResponse(BaseResponse[RecentRankingData]):
     """GET /my/recent-ranking 응답"""
     pass
 
+# 과목별 통계 요소
+class SubjectStatItem(BaseModel):
+    category: str = Field(..., description="과목명 (예: 수학, 영어 등)")
+    total_count: int = Field(..., description="해당 월의 전체 과제 총 개수")
+    completed_count: int = Field(..., description="해당 월에 완료된 과제 개수")
+    achievement_rate: float = Field(..., description="해당 월의 누적 과제 완료율 (0.0 - 100.0)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+# 응답 데이터 구조
+class LearningStatsData(BaseModel):
+    subject_stats: List[SubjectStatItem] = Field(..., description="월간 누적 과목별 학습 데이터 리스트")
+
+# 최종 응답 스키마
+class LearningStatsResponse(BaseResponse[LearningStatsData]):
+    """GET /my/learning-stats 응답"""
+    pass
 

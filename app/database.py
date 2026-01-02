@@ -1,25 +1,30 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 import os
 
-# 실제 PostgreSQL 접속 정보
-load_dotenv()  # ✅ .env 로드
+# .env 로드
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set. Put it in .env or export it.")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# 비동기 드라이버를 사용하도록 DATABASE_URL 수정
+ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+
+# 비동기 엔진 및 세션 설정
+engine = create_async_engine(ASYNC_DATABASE_URL)
+SessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine, class_=AsyncSession
+)
 
 Base = declarative_base()
 
-# DB 세션 의존성 주입 함수
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# 비동기 DB 세션 의존성 주입 함수
+async def get_db() -> AsyncSession:
+    async with SessionLocal() as db:
+        try:
+            yield db
+        finally:
+            await db.close()

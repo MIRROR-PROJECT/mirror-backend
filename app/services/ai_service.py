@@ -1,13 +1,14 @@
+from openai import AsyncOpenAI
+from dotenv import load_dotenv
 import os
 import base64
 import re
 import json
-from openai import OpenAI
-from dotenv import load_dotenv
 
 load_dotenv()
 
-client = OpenAI(
+# 클라이언트 인스턴스화를 함수 외부로 이동하고 AsyncOpenAI 사용
+client = AsyncOpenAI(
     api_key=os.getenv("OPENAI_API_KEY") # OpenAI 키로 변경
 )
 
@@ -47,7 +48,7 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
     """
 
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o", 
             messages=[
                 {"role": "system", "content": system_prompt},

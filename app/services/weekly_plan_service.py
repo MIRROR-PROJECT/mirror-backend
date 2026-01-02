@@ -1,7 +1,7 @@
 """
 주간 학습 계획 생성 AI 서비스 (GPT-4o)
 """
-from openai import OpenAI
+from openai import AsyncOpenAI
 import os
 import json
 from typing import Dict, Any
@@ -29,13 +29,13 @@ async def generate_weekly_plan(
     prompt = _build_prompt(student_data, solving_habits, weekly_schedule)
     
     # OpenAI 클라이언트 생성
-    client = OpenAI(
+    client = AsyncOpenAI(
         api_key=os.getenv("OPENAI_API_KEY")
     )
     
     try:
         # GPT-4o API 호출
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o",  # 또는 "gpt-4o-mini"
             messages=[
                 {
