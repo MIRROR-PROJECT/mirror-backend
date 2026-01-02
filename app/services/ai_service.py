@@ -57,22 +57,24 @@ async def analyze_solving_habit(image_bytes: bytes, cognitive_type: str, subject
 
     try:
         response = client.chat.completions.create(
-            model="qwen/qwen-2.5-vl-7b-instruct:free",
+            model="google/gemini-2.0-flash-exp:free", 
             messages=[
                 {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                    ]
-                }
-            ],
-            response_format={ "type": "json_object" }
+                {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}]}
+            ]
         )
-        return json.loads(response.choices[0].message.content)
+        
+        raw_content = response.choices[0].message.content
+        print(f"DEBUG - AI Raw Response: {raw_content}") # <--- 이 줄이 로그에 찍힙니다!
+
+        # JSON만 추출 시도
+        json_match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+        
+        return json.loads(raw_content)
+
     except Exception as e:
-        print(f"AI 분석 실패: {str(e)}")
-        return {
-            "extracted_content": "이미지 분석 중 오류가 발생했습니다.",
-            "detected_tags": ["분석_실패"]
-        }
+        print(f"AI 분석 실패 상세: {str(e)}")
+        # 에러 발생 시 raw_content를 볼 수 있게 추가 로그
+        return {"extracted_content": "에러 발생", "detected_tags": [str(e)]}
