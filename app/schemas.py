@@ -243,3 +243,122 @@ class WeeklyScheduleData(BaseModel):
 class TimeSlotResponse(BaseResponse[WeeklyScheduleData]):
     """GET /students/{student_id}/time-slots 응답"""
     pass
+
+# --- [주간 학습 계획 생성 관련 스키마] ---
+
+class MissionCreateRequest(BaseModel):
+    """주간 학습 계획 생성 요청"""
+    start_date: Optional[str] = Field(
+        None,
+        description="계획 시작 날짜 (YYYY-MM-DD). 미입력 시 다음 월요일",
+        pattern=r"^\d{4}-\d{2}-\d{2}$"
+    )
+
+    @field_validator('start_date')
+    @classmethod
+    def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            datetime.strptime(v, "%Y-%m-%d")
+            return v
+        except ValueError:
+            raise ValueError(f"잘못된 날짜 형식입니다. YYYY-MM-DD 형식을 사용하세요. (입력값: {v})")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "start_date": "2026-01-06"
+            }
+        }
+    )
+
+
+class TaskDetail(BaseModel):
+    """학습 과제 상세"""
+    task_id: UUID = Field(..., description="과제 고유 ID")
+    sequence: int = Field(..., description="순서 (1부터 시작)", ge=1)
+    category: str = Field(..., description="과목명")
+    title: str = Field(..., description="과제 제목")
+    assigned_minutes: int = Field(..., description="할당 시간 (분)", gt=0)
+    time_slot: str = Field(..., description="권장 시간대 (HH:MM-HH:MM)")
+    difficulty_level: str = Field(..., description="난이도 (상/중/하)")
+    problem_count: int = Field(..., description="예상 문제 수", ge=0)
+    learning_objective: str = Field(..., description="학습 목표")
+    instruction: str = Field(..., description="구체적인 학습 지침")
+    rest_after: int = Field(..., description="과제 후 휴식 시간 (분)", ge=0)
+    is_completed: bool = Field(default=False, description="완료 여부")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DailyPlanDetail(BaseModel):
+    """일별 학습 계획"""
+    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+    day_of_week: str = Field(..., description="요일 (MONDAY ~ SUNDAY)")
+    total_available_minutes: int = Field(..., description="해당 날짜 총 가용 시간 (분)")
+    total_planned_minutes: int = Field(..., description="해당 날짜 계획된 학습 시간 (분)")
+    daily_focus: str = Field(..., description="당일 학습 초점")
+    tasks: List[TaskDetail] = Field(..., description="학습 과제 목록")
+    daily_summary: str = Field(..., description="당일 학습 요약")
+    energy_distribution: str = Field(..., description="에너지 레벨 분포 (예: 상-상-중-하)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WeeklySummaryDetail(BaseModel):
+    """주간 요약"""
+    expected_improvement: str = Field(..., description="예상 향상 효과")
+    adaptive_notes: str = Field(..., description="학생 맞춤 특이사항")
+    weekly_goals: List[str] = Field(..., description="주간 목표 리스트")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WeeklyPlanData(BaseModel):
+    """주간 학습 계획 데이터"""
+    plan_id: UUID = Field(..., description="생성된 주간 개별 계획 고유 ID")
+    student_id: UUID = Field(..., description="학생 고유 ID")
+    start_date: str = Field(..., description="계획 시작 날짜 (YYYY-MM-DD)")
+    end_date: str = Field(..., description="계획 종료 날짜 (YYYY-MM-DD)")
+    total_study_minutes: int = Field(..., description="주간 총 학습 시간 (분)")
+    subject_distribution: dict = Field(..., description="과목별 시간 배분")
+    focus_areas: List[str] = Field(..., description="주간 집중 영역")
+    weekly_plan: List[DailyPlanDetail] = Field(..., description="일별 학습 계획 (7개 요소)")
+    weekly_summary: WeeklySummaryDetail = Field(..., description="주간 요약 정보")
+    created_at: str = Field(..., description="계획 생성 시각 (ISO 8601)")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "plan_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                "student_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "start_date": "2026-01-06",
+                "end_date": "2026-01-12",
+                "total_study_minutes": 780,
+                "subject_distribution": {
+                    "수학": 320,
+                    "영어": 280,
+                    "국어": 180
+                },
+                "focus_areas": [
+                    "수학 계산 실수 교정",
+                    "영어 세부 내용 파악",
+                    "국어 문법 기초 다지기"
+                ],
+                "weekly_plan": [],
+                "weekly_summary": {
+                    "expected_improvement": "이번 주 계획을 완수하면 수학 계산 정확도 15% 향상",
+                    "adaptive_notes": "SPEED_FIRST 유형에 맞춰 짧은 세션으로 구성",
+                    "weekly_goals": ["수학: 이차방정식 완벽 마스터"]
+                },
+                "created_at": "2026-01-02T10:30:00Z"
+            }
+        }
+    )
+
+
+class MissionCreateResponse(BaseResponse[WeeklyPlanData]):
+    """POST /my/missions 응답"""
+    pass

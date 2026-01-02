@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 from . import models, schemas, database
-from .api import setup, routines, students
+from .api import setup, routines, my
 from .services import morphing
 import os
 from dotenv import load_dotenv
@@ -48,4 +48,4 @@ def root():
 # 라우터 등록
 app.include_router(setup.router)
 app.include_router(routines.router)
-app.include_router(students.router)
+app.include_router(my.router)
