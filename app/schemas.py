@@ -1,9 +1,10 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from uuid import UUID
 from datetime import date, time, datetime
 from typing import List, Optional, Generic, TypeVar, Any
 from .models import CognitiveType
 import uuid
+from enum import Enum
 
 # --- [추가] 공통 응답 규격 ---
 T = TypeVar("T")
