@@ -10,9 +10,8 @@ from app.dependencies import get_current_user
 router = APIRouter(prefix="/students", tags=["Students"])
 
 
-@router.get("/{student_id}/time-slots", response_model=schemas.TimeSlotResponse)
+@router.get("/time-slots", response_model=schemas.TimeSlotResponse)
 def get_student_time_slots(
-    student_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user)
 ):
@@ -20,6 +19,9 @@ def get_student_time_slots(
     학생의 주간 가용 시간 가이드 조회
     - WeeklyRoutine 테이블에서 요일별 루틴을 조회하여 권장 학습 시간을 계산합니다.
     """
+
+    # current_user_id를 student_id로 사용
+    student_id = current_user_id
     
     # 1. 학생 프로필 존재 확인
     profile = db.query(models.StudentProfile).filter(
