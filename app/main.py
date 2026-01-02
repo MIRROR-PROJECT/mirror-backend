@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 from . import models, schemas, database
-from .api import setup
-from .api import routines
+from .api import setup, routines, students
 from .services import morphing
 import os
 from dotenv import load_dotenv
@@ -13,7 +12,7 @@ from openai import OpenAI
 from .database import engine
 
 # 서버 시작 시 테이블 재생성
-models.Base.metadata.drop_all(bind=engine)
+# models.Base.metadata.drop_all(bind=engine)
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Mirror AI Backend")
@@ -49,3 +48,4 @@ def root():
 # 라우터 등록
 app.include_router(setup.router)
 app.include_router(routines.router)
+app.include_router(students.router)

@@ -171,3 +171,75 @@ class RoutineCreateResponse(BaseResponse[List[UUID]]):
             }
         }
     )
+
+# --- [주간 가용 시간 조회 관련 스키마] ---
+
+class DaySchedule(BaseModel):
+    """요일별 학습 시간 스케줄"""
+    day_of_week: str = Field(..., description="요일 (MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY)")
+    recommended_minutes: int = Field(..., description="해당 요일 권장 학습 시간 (분)")
+    source_type: str = Field(default="ROUTINE", description="시간 출처")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "day_of_week": "MONDAY",
+                "recommended_minutes": 80,
+                "source_type": "ROUTINE"
+            }
+        }
+    )
+
+
+class WeeklyScheduleData(BaseModel):
+    """주간 스케줄 데이터"""
+    weekly_schedule: List[DaySchedule] = Field(..., description="요일별 가용 시간 목록 (7개 요소)")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "weekly_schedule": [
+                    {
+                        "day_of_week": "MONDAY",
+                        "recommended_minutes": 80,
+                        "source_type": "ROUTINE"
+                    },
+                    {
+                        "day_of_week": "TUESDAY", 
+                        "recommended_minutes": 120,
+                        "source_type": "ROUTINE"
+                    },
+                    {
+                        "day_of_week": "WEDNESDAY",
+                        "recommended_minutes": 90,
+                        "source_type": "ROUTINE"
+                    },
+                    {
+                        "day_of_week": "THURSDAY",
+                        "recommended_minutes": 100,
+                        "source_type": "ROUTINE"
+                    },
+                    {
+                        "day_of_week": "FRIDAY",
+                        "recommended_minutes": 60,
+                        "source_type": "ROUTINE"
+                    },
+                    {
+                        "day_of_week": "SATURDAY",
+                        "recommended_minutes": 180,
+                        "source_type": "ROUTINE"
+                    },
+                    {
+                        "day_of_week": "SUNDAY",
+                        "recommended_minutes": 150,
+                        "source_type": "ROUTINE"
+                    }
+                ]
+            }
+        }
+    )
+
+
+class TimeSlotResponse(BaseResponse[WeeklyScheduleData]):
+    """GET /students/{student_id}/time-slots 응답"""
+    pass
