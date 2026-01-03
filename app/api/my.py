@@ -149,9 +149,24 @@ async def create_weekly_missions(
         )
     except Exception as e:
         return schemas.MissionCreateResponse.fail_res(message=f"주간 계획 생성 중 오류: {str(e)}", code=500)
-    
-    # 9. ✅ 여기서 summary_info 계산!
-    summary_info = calculate_weekly_summary(ai_response)
+
+    # start_date 먼저 결정
+    if request and request.start_date:
+        request_start_date = request.start_date
+    else:
+        today = datetime.now()
+        days_until_monday = (7 - today.weekday()) % 7
+        if days_until_monday == 0:
+            days_until_monday = 7
+        next_monday = today + timedelta(days=days_until_monday)
+        request_start_date = next_monday.strftime("%Y-%m-%d")
+
+    print(f"🗓️ DEBUG: 사용할 start_date: {request_start_date}")
+
+    # calculate_weekly_summary에 start_date 전달
+    summary_info = calculate_weekly_summary(ai_response, request_start_date)
+
+    print(f"✅ DEBUG: summary_info['start_date']: {summary_info['start_date']}")
     
     # 10. DB 저장 (7일치 DailyPlan + Task)
     try:

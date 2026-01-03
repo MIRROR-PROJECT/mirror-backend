@@ -256,9 +256,13 @@ def _build_prompt(
     )
 
 
-def calculate_weekly_summary(weekly_plan_data: Dict[str, Any]) -> Dict[str, Any]:
+def calculate_weekly_summary(weekly_plan_data: Dict[str, Any], start_date_str: str) -> Dict[str, Any]:
     """
     주간 계획으로부터 요약 정보 계산
+    
+    Args:
+        weekly_plan_data: AI가 생성한 주간 계획
+        start_date_str: 실제 시작 날짜 (YYYY-MM-DD)
     
     Returns:
         {
@@ -292,9 +296,14 @@ def calculate_weekly_summary(weekly_plan_data: Dict[str, Any]) -> Dict[str, Any]
             minutes = task['assigned_minutes']
             subject_dist[category] = subject_dist.get(category, 0) + minutes
     
-    # 시작/종료 날짜
-    start_date = weekly_plan[0]['date'] if weekly_plan else None
-    end_date = weekly_plan[-1]['date'] if weekly_plan else None
+    # ✅ 수정: 파라미터로 받은 start_date 사용
+    start_date = start_date_str
+    
+    # 종료 날짜 계산 (시작일 + 6일)
+    from datetime import datetime, timedelta
+    start_dt = datetime.strptime(start_date_str, "%Y-%m-%d")
+    end_dt = start_dt + timedelta(days=6)
+    end_date = end_dt.strftime("%Y-%m-%d")
     
     return {
         'total_study_minutes': total_minutes,
