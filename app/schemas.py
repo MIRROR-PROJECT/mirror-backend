@@ -33,6 +33,54 @@ class ProfileResponseData(BaseModel):
     class Config:
         from_attributes = True # SQLAlchemy 모델 객체를 Pydantic으로 자동 변환
 
+
+# --- [온보딩 역할 선택 관련 스키마] ---
+
+class RoleType(str, Enum):
+    """사용자 역할 타입"""
+    STUDENT = "student"
+    TEACHER = "teacher"
+    PARENT = "parent"
+
+
+class RoleSelectionRequest(BaseModel):
+    """역할 선택 요청"""
+    role: RoleType = Field(
+        ..., 
+        description="사용자 역할 (student, teacher, parent)",
+        example="student"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "role": "student"
+            }
+        }
+    )
+
+class RoleSelectionData(BaseModel):
+    """역할 선택 응답 데이터"""
+    user_id: UUID = Field(..., description="사용자 고유 식별자")
+    role: str = Field(..., description="저장된 역할")
+    role_id: UUID = Field(..., description="역할별 테이블의 고유 ID (student_id/teacher_id/parent_id)")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "user_id": "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+                "role": "student",
+                "role_id": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33"
+            }
+        }
+    )
+
+class RoleSelectionResponse(BaseResponse[RoleSelectionData]):
+    """POST /onboarding/role 응답"""
+    pass
+
+
 # --- [요청 모델] ---
 class ProfileCreateRequest(BaseModel):
     user_id: UUID
