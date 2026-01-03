@@ -514,3 +514,140 @@ class LearningStatsResponse(BaseResponse[LearningStatsData]):
     """GET /my/learning-stats 응답"""
     pass
 
+# --- [태스크 완료 여부 변경 관련 스키마] ---
+
+class TaskToggleData(BaseModel):
+    """태스크 상태 변경 응답 데이터"""
+    task_id: UUID
+    is_completed: bool
+
+class TaskToggleResponse(BaseResponse[TaskToggleData]):
+    """PATCH /my/tasks/{task_id}/toggle 응답"""
+    pass
+
+
+
+# --- Request 스키마 ---
+
+class RoutineUpdateRequest(BaseModel):
+    """주간 루틴 수정 요청 (항상 AI 재생성)"""
+    user_id: UUID = Field(..., description="학생 고유 ID")
+    routines: List[RoutineBlockRequest] = Field(..., description="새로운 시간 블록 배열")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "user_id": "a3b5c7d9-1234-5678-90ab-cdef12345678",
+                "routines": [
+                    {
+                        "day_of_week": "MON",
+                        "start_time": "10:00",
+                        "end_time": "12:00",
+                        "total_minutes": 120
+                    }
+                ]
+            }
+        }
+    )
+
+
+# --- Response 스키마 ---
+
+class PlanChanges(BaseModel):
+    """계획 변경 정보"""
+    old_tasks_count: int = Field(..., description="변경 전 Task 개수")
+    new_tasks_count: int = Field(..., description="변경 후 Task 개수")
+    old_minutes: int = Field(..., description="변경 전 총 학습 시간")
+    new_minutes: int = Field(..., description="변경 후 총 학습 시간")
+
+
+class RegeneratedPlanItem(BaseModel):
+    """재생성된 계획 항목"""
+    plan_id: UUID = Field(..., description="DailyPlan ID")
+    plan_date: str = Field(..., description="계획 날짜 (YYYY-MM-DD)")
+    day_of_week: str = Field(..., description="요일 (MON, TUE, ...)")
+    affected: bool = Field(..., description="루틴 변경으로 영향받았는지")
+    status: str = Field(..., description="regenerated, unchanged, failed")
+    tasks_count: int = Field(..., description="Task 개수")
+    total_minutes: int = Field(..., description="총 학습 시간 (분)")
+    changes: Optional[PlanChanges] = Field(None, description="변경 전후 비교")
+    error_message: Optional[str] = Field(None, description="실패 시 오류 메시지")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "plan_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "plan_date": "2026-01-06",
+                "day_of_week": "MON",
+                "affected": True,
+                "status": "regenerated",
+                "tasks_count": 4,
+                "total_minutes": 110,
+                "changes": {
+                    "old_tasks_count": 3,
+                    "new_tasks_count": 4,
+                    "old_minutes": 90,
+                    "new_minutes": 110
+                },
+                "error_message": None
+            }
+        }
+    )
+
+
+class RegenerationSummary(BaseModel):
+    """재생성 통계"""
+    total_plans: int = Field(..., description="전체 처리된 계획 개수")
+    regenerated: int = Field(..., description="재생성된 계획 개수")
+    unchanged: int = Field(..., description="유지된 계획 개수")
+    failed: int = Field(..., description="실패한 계획 개수")
+
+
+class RoutineUpdateData(BaseModel):
+    """주간 루틴 수정 응답 데이터"""
+    updated_routine_ids: List[UUID] = Field(..., description="수정된 루틴 ID 목록")
+    deleted_count: int = Field(..., description="삭제된 기존 루틴 개수")
+    regenerated_plans: List[RegeneratedPlanItem] = Field(..., description="재생성된 학습 계획 목록")
+    summary: RegenerationSummary = Field(..., description="재생성 통계")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "updated_routine_ids": [
+                    "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                    "8d3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7a"
+                ],
+                "deleted_count": 5,
+                "regenerated_plans": [
+                    {
+                        "plan_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                        "plan_date": "2026-01-06",
+                        "day_of_week": "MON",
+                        "affected": True,
+                        "status": "regenerated",
+                        "tasks_count": 4,
+                        "total_minutes": 110,
+                        "changes": {
+                            "old_tasks_count": 3,
+                            "new_tasks_count": 4,
+                            "old_minutes": 90,
+                            "new_minutes": 110
+                        }
+                    }
+                ],
+                "summary": {
+                    "total_plans": 7,
+                    "regenerated": 3,
+                    "unchanged": 4,
+                    "failed": 0
+                }
+            }
+        }
+    )
+
+
+class RoutineUpdateResponse(BaseResponse[RoutineUpdateData]):
+    """PATCH /students/routines 응답"""
+    pass

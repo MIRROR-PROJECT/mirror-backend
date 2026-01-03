@@ -4,8 +4,8 @@
 from openai import AsyncOpenAI
 import os
 import json
-from typing import Dict, Any
-from datetime import datetime, timedelta
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta, date
 
 
 async def generate_weekly_plan(
@@ -312,3 +312,154 @@ def calculate_weekly_summary(weekly_plan_data: Dict[str, Any], start_date_str: s
         'start_date': start_date,
         'end_date': end_date
     }
+
+async def regenerate_daily_plan_for_date(
+    db,
+    student_data: dict,
+    target_date: date,
+    solving_habits: str,
+    day_routines: List,
+    existing_plan_id: Optional = None
+) -> Dict[str, Any]:
+    """
+    특정 날짜의 학습 계획을 AI로 재생성
+    
+    Args:
+        db: DB 세션
+        student_data: 학생 정보
+        target_date: 재생성할 날짜 (date 객체)
+        solving_habits: 풀이 습관 텍스트
+        day_routines: 해당 날짜(요일)의 루틴 목록
+        existing_plan_id: 기존 DailyPlan ID (사용 안 함)
+    
+    Returns:
+        {
+            'daily_focus': str,
+            'total_planned_minutes': int,
+            'tasks': List[Task]
+        }
+    """
+    from datetime import datetime
+    import openai
+    import os
+    import json
+    
+    # 1. 해당 날짜의 가용 시간 계산
+    total_minutes = sum(r.total_minutes or 0 for r in day_routines)
+    
+    if total_minutes == 0:
+        print(f"⚠️  {target_date}: 가용 시간 없음 (루틴 없음)")
+        return None
+    
+    # 2. 요일 정보
+    day_map = {
+        0: "월요일", 1: "화요일", 2: "수요일", 3: "목요일",
+        4: "금요일", 5: "토요일", 6: "일요일"
+    }
+    day_kr = day_map[target_date.weekday()]
+    
+    # 3. 일일 계획 생성 프롬프트
+    DAILY_PLAN_PROMPT = f"""
+당신은 학생 맞춤형 학습 계획을 생성하는 AI입니다.
+
+## 학생 정보
+- 이름: {student_data.get('student_name', '학생')}
+- 학년: {student_data['school_grade']}학년 {student_data['semester']}학기
+- 과목: {', '.join(student_data['subjects'])}
+- 인지 유형: {student_data['cognitive_type']}
+
+## 인지 유형별 학습 전략
+- **SPEED_FIRST**: 25분 학습 + 5분 휴식, 다양한 유형 짧게
+- **PRECISION_FIRST**: 50분 학습 + 10분 휴식, 같은 유형 반복
+- **BURST_STUDY**: 90분 집중 + 30분 휴식, 한 과목 몰입
+
+## 풀이 습관 분석
+{solving_habits}
+
+## 날짜 및 가용 시간
+- **날짜**: {target_date.strftime('%Y-%m-%d')} ({day_kr})
+- **가용 시간**: 총 {total_minutes}분
+
+### 시간 블록
+"""
+    
+    for idx, routine in enumerate(day_routines, 1):
+        DAILY_PLAN_PROMPT += f"- 블록{idx}: {routine.start_time.strftime('%H:%M')}-{routine.end_time.strftime('%H:%M')} ({routine.total_minutes}분)\n"
+    
+    DAILY_PLAN_PROMPT += f"""
+
+## 생성 규칙
+1. **총 학습 시간**: {total_minutes}분의 90-95% 활용
+2. **과제 개수**: 3-5개 (너무 많으면 부담)
+3. **난이도 분포**:
+   - 오전(09:00-12:00): 상 난이도 (고집중)
+   - 오후(13:00-17:00): 중 난이도
+   - 저녁(18:00-22:00): 하 난이도 (복습, 암기)
+4. **인지 유형 반영**: {student_data['cognitive_type']}에 맞는 세션 길이
+5. **휴식 시간**: 각 과제에 적절한 휴식 포함
+
+## 출력 형식
+반드시 유효한 JSON만 출력하세요. 마크다운이나 설명 없이 JSON만 반환하세요.
+
+{{
+  "daily_focus": "오늘의 학습 초점 (예: 수학 계산 실수 교정)",
+  "total_planned_minutes": {int(total_minutes * 0.9)},
+  "tasks": [
+    {{
+      "sequence": 1,
+      "category": "과목명",
+      "title": "구체적인 과제 제목 (단원, 페이지 등 명시)",
+      "assigned_minutes": 60,
+      "time_slot": "09:00-10:00",
+      "difficulty_level": "중",
+      "problem_count": 5,
+      "learning_objective": "학습 목표",
+      "instruction": "구체적인 학습 지침 (예: 중간 과정 꼭 적기)",
+      "rest_after": 5
+    }}
+  ],
+  "daily_summary": "당일 학습 요약",
+  "energy_distribution": "상-중-하"
+}}
+
+**중요**: 
+- tasks 배열의 각 테스크 항목의 title은 최대한 구체적으로 작성 (단원 언급, 페이지 범위 언급)
+- instruction은 "~하세요" 직접 행동 지시 형식으로
+- 과제의 총 시간(assigned_minutes + rest_after)이 가용 시간을 초과하지 않도록
+- 반드시 한국어로만 작성
+"""
+    
+    # 4. OpenAI API 호출
+    try:
+        client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        response = await client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "당신은 학생 맞춤형 학습 계획 전문가입니다. 반드시 순수 JSON 형식으로만 응답하세요."},
+                {"role": "user", "content": DAILY_PLAN_PROMPT}
+            ],
+            temperature=0.7,
+            max_tokens=2000,
+            response_format={"type": "json_object"}
+        )
+        
+        content = response.choices[0].message.content.strip()
+        
+        # JSON 추출 (혹시 모를 마크다운 제거)
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        
+        plan_data = json.loads(content)
+        
+        print(f"✅ AI 계획 생성 완료: {target_date}")
+        
+        return plan_data
+        
+    except Exception as e:
+        print(f"❌ AI 계획 생성 실패: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None

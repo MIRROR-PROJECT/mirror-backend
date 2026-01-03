@@ -149,7 +149,7 @@ async def create_weekly_missions(
         )
     except Exception as e:
         return schemas.MissionCreateResponse.fail_res(message=f"주간 계획 생성 중 오류: {str(e)}", code=500)
-
+    
     # start_date 먼저 결정
     if request and request.start_date:
         request_start_date = request.start_date
@@ -592,3 +592,47 @@ async def get_learning_stats(
         data=schemas.LearningStatsData(subject_stats=subject_stats),
         message=f"{target_year}년 {target_month}월 학습 통계 조회 성공"
     )
+
+@router.patch("/tasks/{task_id}/toggle", response_model=schemas.TaskToggleResponse)
+async def toggle_task_completion(
+    task_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user_id: str = Depends(get_current_user) #
+):
+    """
+    태스크의 is_completed 상태를 토글합니다.
+    """
+    # 1. 태스크 조회
+    result = await db.execute(select(models.Task).where(models.Task.id == task_id))
+    task = result.scalars().first()
+
+    # 2. 태스크가 없으면 404 응답
+    if not task:
+        return schemas.TaskToggleResponse.fail_res(
+            message="해당 task_id의 태스크를 찾을 수 없습니다.",
+            code=404
+        )
+
+    # 3. is_completed 상태 변경
+    task.is_completed = not task.is_completed
+    
+    try:
+        await db.commit()
+        await db.refresh(task)
+        
+        # 4. 성공 응답 반환
+        return schemas.TaskToggleResponse.success_res(
+            data=schemas.TaskToggleData(
+                task_id=task.id,
+                is_completed=task.is_completed
+            ),
+            message="태스크 상태 변경 성공",
+            code=200
+        )
+    except Exception as e:
+        await db.rollback()
+        # 실패 응답 반환
+        return schemas.TaskToggleResponse.fail_res(
+            message=f"상태 변경 중 오류 발생: {str(e)}",
+            code=500
+        )
