@@ -51,7 +51,6 @@ class StudentProfileResponse(BaseResponse[ProfileResponseData]):
     pass
 
 
-
 class AnalysisResultItem(BaseModel):
     analysis_id: UUID
     subject: str
@@ -281,7 +280,7 @@ class TaskDetail(BaseModel):
     assigned_minutes: int = Field(..., description="할당 시간 (분)", gt=0)
     time_slot: str = Field(..., description="권장 시간대 (HH:MM-HH:MM)")
     difficulty_level: str = Field(..., description="난이도 (상/중/하)")
-    problem_count: int = Field(..., description="예상 문제 수", ge=0)
+    problem_count: int = Field(default=0, description="예상 문제 수", ge=0)
     learning_objective: str = Field(..., description="학습 목표")
     instruction: str = Field(..., description="구체적인 학습 지침")
     rest_after: int = Field(..., description="과제 후 휴식 시간 (분)", ge=0)
