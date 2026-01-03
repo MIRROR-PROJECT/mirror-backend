@@ -38,7 +38,7 @@ class StudentClassMatch(Base):
     student = relationship("StudentProfile", back_populates="class_matches")
     teacher = relationship("User") # 강사 유저 정보와 연결
 
-# 4. 학생 프로필
+# 4-1. 학생 프로필
 class StudentProfile(Base):
     __tablename__ = "student_profiles"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -68,6 +68,45 @@ class StudentProfile(Base):
     problem_logs = relationship("ProblemAnalysisLog", back_populates="student", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="student")
     analytics = relationship("LearningAnalytics", back_populates="student", cascade="all, delete-orphan")
+
+# 4-2. Teacher (선생님 프로필)
+class TeacherProfile(Base):
+    __tablename__ = "teacher_profiles"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+    
+    # 선생님 기본 정보
+    teacher_name = Column(String, nullable=True)
+    subject_specialization = Column(JSONB, default=[])  # ["수학", "과학"] 전문 과목
+    academy_name = Column(String, nullable=True)  # 소속 학원
+    
+    # 메타데이터
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    
+    # 관계
+    user = relationship("User", foreign_keys=[user_id])
+    # 향후 추가 가능: 담당 학생 목록 등
+
+
+# 4-3. Parent (학부모 프로필)  
+class ParentProfile(Base):
+    __tablename__ = "parent_profiles"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+    
+    # 학부모 기본 정보
+    parent_name = Column(String, nullable=True)
+    children_ids = Column(JSONB, default=[])  # 연결된 자녀 student_id 목록
+    
+    # 메타데이터
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    
+    # 관계
+    user = relationship("User", foreign_keys=[user_id])
 
 # 5. 주간 루틴
 class WeeklyRoutine(Base):

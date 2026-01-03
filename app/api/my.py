@@ -445,7 +445,7 @@ async def get_today_mission(
                     task_id=uuid.uuid4(),
                     category="일정 없음",
                     title="일정 없음",
-                    subtitle="나중 분양 선택 중 (1시간)",
+                    subtitle="휴식 시간 (1시간)",
                     assigned_minutes=60,
                     is_completed=False,
                     status="잠김"
