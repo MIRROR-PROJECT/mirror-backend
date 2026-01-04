@@ -13,7 +13,7 @@ from ..schemas import (
     SimpleWeeklyDailyPlan,
     SimpleWeeklyTaskItem
 )
-from ..auth import get_current_user
+from ..dependencies import get_current_user
 
 router = APIRouter(
     prefix="/studyroom",
