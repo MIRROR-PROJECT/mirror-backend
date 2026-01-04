@@ -698,3 +698,49 @@ class RoutineUpdateData(BaseModel):
 class RoutineUpdateResponse(BaseResponse[RoutineUpdateData]):
     """PATCH /students/routines 응답"""
     pass
+
+
+
+# --- [일주일치 학습 계획 조회 관련 스키마] ---
+
+class SimpleWeeklyTaskItem(BaseModel):
+    """주간 조회용 Task 항목"""
+    task_id: UUID = Field(..., description="과제 고유 ID")
+    sequence: int = Field(..., description="순서")
+    category: str = Field(..., description="과목명")
+    title: str = Field(..., description="과제 제목")
+    assigned_minutes: int = Field(..., description="할당 시간 (분)")
+    is_completed: bool = Field(..., description="완료 여부")
+    completed_at: Optional[str] = Field(None, description="완료 시각 (ISO 8601)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SimpleWeeklyDailyPlan(BaseModel):
+    """주간 조회용 일일 계획"""
+    plan_id: UUID = Field(..., description="일일 계획 ID")
+    date: str = Field(..., description="날짜 (YYYY-MM-DD)")
+    day_of_week: str = Field(..., description="요일")
+    title: str = Field(..., description="계획 제목")
+    total_planned_minutes: int = Field(..., description="계획된 총 시간 (분)")
+    total_completed_minutes: int = Field(..., description="완료된 시간 (분)")
+    completion_rate: float = Field(..., description="완료율 (0-100)")
+    is_completed: bool = Field(..., description="전체 완료 여부")
+    tasks: List[SimpleWeeklyTaskItem] = Field(..., description="과제 목록")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SimpleWeeklyPlanData(BaseModel):
+    """주간 계획 조회 응답 데이터"""
+    student_id: UUID = Field(..., description="학생 ID")
+    start_date: str = Field(..., description="시작 날짜 (YYYY-MM-DD)")
+    end_date: str = Field(..., description="종료 날짜 (YYYY-MM-DD)")
+    weekly_plan: List[SimpleWeeklyDailyPlan] = Field(..., description="일별 계획 (7개)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SimpleWeeklyPlanResponse(BaseResponse[SimpleWeeklyPlanData]):
+    """GET /studyroom/weekly-plan 응답"""
+    pass
