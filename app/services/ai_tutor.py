@@ -74,28 +74,32 @@ async def generate_tutor_response(
 """
 
     # 대화 내역 구성
-    messages = []
-    
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt
+        }
+    ]
+
     if chat_history:
         for msg in chat_history[-5:]:  # 최근 5개만
             messages.append({
                 "role": msg["role"],
                 "content": msg["content"]
             })
-    
+
     # 현재 질문 추가
     messages.append({
         "role": "user",
         "content": user_message
     })
-    
+
     # API 호출
     try:
         # 1. 튜터 응답 생성
         response = await client.chat.completions.create(
             model="gpt-4o",
             max_tokens=2000,
-            system=system_prompt,
             messages=messages
         )
         
