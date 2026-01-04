@@ -744,3 +744,111 @@ class SimpleWeeklyPlanData(BaseModel):
 class SimpleWeeklyPlanResponse(BaseResponse[SimpleWeeklyPlanData]):
     """GET /studyroom/weekly-plan 응답"""
     pass
+
+# --- [AI 튜터 채팅 관련 스키마] ---
+
+class ChatRequest(BaseModel):
+    """채팅 요청"""
+    message: str = Field(..., description="사용자 메시지", min_length=1)
+    problem_log_id: Optional[UUID] = Field(None, description="특정 문제 관련 대화인 경우")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "message": "이차방정식 풀이 방법을 알려주세요",
+                "problem_log_id": None
+            }
+        }
+    )
+
+
+class StudentSentimentAnalysis(BaseModel):
+    """학생 상태 분석 상세"""
+    understanding_level: str = Field(..., description="이해도 수준 (상/중/하)")
+    emotional_state: str = Field(..., description="감정 상태 (긍정적/중립적/부정적/좌절감)")
+    engagement_level: str = Field(..., description="참여도 (높음/보통/낮음)")
+    confusion_points: List[str] = Field(default=[], description="혼란스러워하는 개념")
+    question_type: str = Field(..., description="질문 유형 (개념질문/풀이질문/확인질문/심화질문)")
+    learning_signal: str = Field(..., description="학습 신호 (이해함/이해중/혼란/어려움/관심)")
+    needs_intervention: bool = Field(..., description="교사 개입 필요 여부")
+    confidence_score: float = Field(..., description="학생 자신감 점수 (0-100)", ge=0, le=100)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "understanding_level": "중",
+                "emotional_state": "긍정적",
+                "engagement_level": "높음",
+                "confusion_points": ["근의 공식 유도 과정"],
+                "question_type": "개념질문",
+                "learning_signal": "이해중",
+                "needs_intervention": False,
+                "confidence_score": 65.0
+            }
+        }
+    )
+
+
+class ChatResponseData(BaseModel):
+    """채팅 응답 데이터"""
+    user_message_id: UUID = Field(..., description="사용자 메시지 ID")
+    assistant_message_id: UUID = Field(..., description="AI 응답 메시지 ID")
+    user_message: str = Field(..., description="사용자 메시지")
+    assistant_message: str = Field(..., description="AI 응답")
+    student_sentiment: StudentSentimentAnalysis = Field(..., description="학생 상태 상세 분석")
+    created_at: str = Field(..., description="생성 시각 (ISO 8601)")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "user_message_id": "msg-user-001-uuid",
+                "assistant_message_id": "msg-ai-002-uuid",
+                "user_message": "이차방정식 풀이 방법을 알려주세요",
+                "assistant_message": "이차방정식을 푸는 방법은...",
+                "student_sentiment": {
+                    "understanding_level": "중",
+                    "emotional_state": "긍정적",
+                    "engagement_level": "높음",
+                    "confusion_points": [],
+                    "question_type": "개념질문",
+                    "learning_signal": "이해중",
+                    "needs_intervention": False,
+                    "confidence_score": 70.0
+                },
+                "created_at": "2026-01-03T10:30:00Z"
+            }
+        }
+    )
+
+
+class ChatResponse(BaseResponse[ChatResponseData]):
+    """POST /chat 응답"""
+    pass
+
+
+# --- [채팅 히스토리 조회 관련 스키마] ---
+
+class ChatHistoryItem(BaseModel):
+    """채팅 메시지 항목"""
+    message_id: UUID = Field(..., description="메시지 ID")
+    role: str = Field(..., description="역할 (user/assistant)")
+    content: str = Field(..., description="메시지 내용")
+    student_sentiment: Optional[str] = Field(None, description="학생 상태")
+    created_at: str = Field(..., description="생성 시각 (ISO 8601)")
+    problem_log_id: Optional[UUID] = Field(None, description="연결된 문제 ID")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ChatHistoryData(BaseModel):
+    """채팅 히스토리 데이터"""
+    total_count: int = Field(..., description="총 메시지 수")
+    messages: List[ChatHistoryItem] = Field(..., description="메시지 목록")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ChatHistoryResponse(BaseResponse[ChatHistoryData]):
+    """GET /chat/history 응답"""
+    pass

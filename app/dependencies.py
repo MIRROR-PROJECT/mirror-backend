@@ -8,6 +8,8 @@ load_dotenv()
 
 # .env에서 보안 키 로드
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+if not SUPABASE_JWT_SECRET:
+    raise RuntimeError("SUPABASE_JWT_SECRET is not set. Put it in .env or export it.")
 
 # 💡 이것이 API 라우터에서 'Depends'로 사용할 의존성 함수입니다.
 async def get_current_user(authorization: str = Header(None)) -> str:

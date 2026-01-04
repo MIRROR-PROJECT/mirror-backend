@@ -1,6 +1,6 @@
 import enum
 import uuid
-import datetime
+from datetime import datetime, date, timezone
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Date, Enum, Time, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -19,7 +19,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(String, default="STUDENT") # "STUDENT", "TEACHER", "PARENT"
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
 # 3. 학생-강사 다중 매칭 연결 테이블 (N:M 관계 해결)
 class StudentClassMatch(Base):
@@ -32,7 +32,7 @@ class StudentClassMatch(Base):
     academy_name = Column(String, nullable=True)     # 학원 이름
     class_name = Column(String, nullable=False)       # 구체적인 반 이름 (예: "고2 수학 A반", "심화 물리반")
     class_code = Column(String, nullable=True)        # 반 고유 코드 (선택사항, 출석부 연동용)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
     # 관계 설정
     student = relationship("StudentProfile", back_populates="class_matches")
@@ -82,8 +82,8 @@ class TeacherProfile(Base):
     academy_name = Column(String, nullable=True)  # 소속 학원
     
     # 메타데이터
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # 관계
     user = relationship("User", foreign_keys=[user_id])
@@ -102,8 +102,8 @@ class ParentProfile(Base):
     children_ids = Column(JSONB, default=[])  # 연결된 자녀 student_id 목록
     
     # 메타데이터
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
     # 관계
     user = relationship("User", foreign_keys=[user_id])
@@ -134,7 +134,7 @@ class DailyPlan(Base):
     __tablename__ = "daily_plans"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"))
-    plan_date = Column(Date, default=datetime.date.today)
+    plan_date = Column(Date, default=date.today)
     title = Column(String) # 해당 날짜 계획의 대표 명칭 (예: "기말고사 대비 수학 집중일")
     target_minutes = Column(Integer) # 그날 목표로 하는 순공 시간
     is_completed = Column(Boolean, default=False) 
@@ -164,7 +164,7 @@ class LearningAnalytics(Base):
     subject_name = Column(String)
     unit_name = Column(String)
     achievement_rate = Column(Float)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     student = relationship("StudentProfile", back_populates="analytics")  
 
@@ -184,7 +184,7 @@ class DiagnosisLog(Base):
     
     # 메타데이터
     image_url = Column(String, nullable=True)  # 원본 이미지 저장 경로
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
     
     # 관계
     student = relationship("StudentProfile", back_populates="diagnosis_logs")
@@ -209,7 +209,7 @@ class ProblemAnalysisLog(Base):
     ai_feedback_summary = Column(Text)  # 해당 문제 피드백
     
     # 메타데이터
-    solved_at = Column(DateTime, default=datetime.datetime.utcnow)
+    solved_at = Column(DateTime, default=datetime.now)
     
     # 관계
     student = relationship("StudentProfile", back_populates="problem_logs")
@@ -231,8 +231,29 @@ class ChatMessage(Base):
     # AI가 분석한 대화 시점의 학생 상태 (부가 정보)
     student_sentiment = Column(String, nullable=True) # "이해함", "혼란스러움" 등
     
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
     # 관계 설정
     student = relationship("StudentProfile", back_populates="chat_messages")
     problem_log = relationship("ProblemAnalysisLog", back_populates="chat_messages")
+
+
+class StudentSentimentAnalysisLog(Base):
+    """학생 상태 분석 로그 (상세 저장용)"""
+    __tablename__ = "student_sentiment_analysis_logs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    student_id = Column(UUID(as_uuid=True), ForeignKey("student_profiles.id"))
+    chat_message_id = Column(UUID(as_uuid=True), ForeignKey("chat_messages.id"))
+    
+    # 상세 분석 필드
+    understanding_level = Column(String)  # 상/중/하
+    emotional_state = Column(String)  # 긍정적/중립적/부정적/좌절감
+    engagement_level = Column(String)  # 높음/보통/낮음
+    confusion_points = Column(JSONB, default=[])
+    question_type = Column(String)
+    learning_signal = Column(String)
+    needs_intervention = Column(Boolean)
+    confidence_score = Column(Float)
+    
+    created_at = Column(DateTime, default=datetime.now)
