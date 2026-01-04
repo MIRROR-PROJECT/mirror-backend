@@ -19,6 +19,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
     role = Column(String, default="STUDENT") # "STUDENT", "TEACHER", "PARENT"
+    phone_number = Column(String, nullable=True)  # "010-1234-5678"
     created_at = Column(DateTime, default=datetime.now)
 
 # 3. 학생-강사 다중 매칭 연결 테이블 (N:M 관계 해결)

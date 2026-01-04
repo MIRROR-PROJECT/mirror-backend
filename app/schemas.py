@@ -852,3 +852,85 @@ class ChatHistoryData(BaseModel):
 class ChatHistoryResponse(BaseResponse[ChatHistoryData]):
     """GET /chat/history 응답"""
     pass
+
+
+# --- [선생님 대시보드 - 학생 진도율 조회 스키마] ---
+
+class WeaknessAnalysis(BaseModel):
+    """학생 취약점 분석"""
+    weak_concepts: List[str] = Field(default=[], description="취약한 개념 목록")
+    error_patterns: List[str] = Field(default=[], description="주요 오답 패턴")
+    struggling_subjects: List[str] = Field(default=[], description="어려움을 겪는 과목")
+    recent_struggles: int = Field(default=0, description="최근 어려움 호소 횟수 (7일)", ge=0)
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "weak_concepts": ["로그 법칙", "이차방정식"],
+                "error_patterns": ["계산 실수", "개념 혼동"],
+                "struggling_subjects": ["수학"],
+                "recent_struggles": 5
+            }
+        }
+    )
+
+
+class StudentProgressSimple(BaseModel):
+    """학생 진도율 정보 (간소화)"""
+    student_id: UUID = Field(..., description="학생 프로필 ID")
+    student_name: str = Field(..., description="학생 이름")
+    phone_number: Optional[str] = Field(None, description="전화번호")
+    profile_initial: str = Field(..., description="프로필 이니셜 (1글자)")
+    class_label: str = Field(..., description="소속 반 이름")
+    progress_rate: float = Field(..., description="학습 진도율 (0-100)", ge=0, le=100)
+    progress_trend: str = Field(..., description="진도율 추세 (up/down/stable)")
+    weakness_analysis: WeaknessAnalysis = Field(..., description="취약점 분석")
+    last_active_at: Optional[str] = Field(None, description="마지막 활동 시각 (ISO 8601)")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "student_id": "student-001-uuid",
+                "student_name": "박민수",
+                "phone_number": "010-1234-5678",
+                "profile_initial": "박",
+                "class_label": "고2 수리논술 심화반 A",
+                "progress_rate": 42.0,
+                "progress_trend": "down",
+                "weakness_analysis": {
+                    "weak_concepts": ["로그 법칙", "이차방정식"],
+                    "error_patterns": ["계산 실수", "개념 혼동"],
+                    "struggling_subjects": ["수학"],
+                    "recent_struggles": 5
+                },
+                "last_active_at": "2026-01-03T15:30:00Z"
+            }
+        }
+    )
+
+
+class ClassInfoBasic(BaseModel):
+    """반 정보 (기본)"""
+    class_id: UUID = Field(..., description="반 ID")
+    class_name: str = Field(..., description="반 이름")
+    academy_name: Optional[str] = Field(None, description="학원 이름")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StudentProgressDataSimple(BaseModel):
+    """학생 진도율 조회 응답 데이터 (간소화)"""
+    class_info: ClassInfoBasic = Field(..., description="반 정보")
+    period_start: str = Field(..., description="조회 시작 날짜 (YYYY-MM-DD)")
+    period_end: str = Field(..., description="조회 종료 날짜 (YYYY-MM-DD)")
+    total_students: int = Field(..., description="전체 학생 수")
+    students: List[StudentProgressSimple] = Field(..., description="학생 목록")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class StudentProgressResponseSimple(BaseResponse[StudentProgressDataSimple]):
+    """GET /teacher/classes/{class_id}/students/progress 응답"""
+    pass
