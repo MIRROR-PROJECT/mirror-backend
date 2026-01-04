@@ -92,14 +92,14 @@ async def generate_tutor_response(
     # API 호출
     try:
         # 1. 튜터 응답 생성
-        response = client.messages.create(
+        response = await client.chat.completions.create(
             model="gpt-4o",
             max_tokens=2000,
             system=system_prompt,
             messages=messages
         )
         
-        assistant_message = response.content[0].text
+        assistant_message = response.choices[0].message.content
         
         # 2. 학생 상태 상세 분석
         analysis_prompt = f"""학생의 질문을 분석하여 학습 상태를 평가하세요.
@@ -129,13 +129,13 @@ async def generate_tutor_response(
 - confidence_score: 학생의 자신감 수준 (0=전혀 없음, 100=매우 높음)
 """
 
-        sentiment_response = client.messages.create(
+        sentiment_response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": analysis_prompt}]
         )
         
         # JSON 파싱
-        sentiment_text = sentiment_response.content[0].text.strip()
+        sentiment_text = sentiment_response.choices[0].message.content.strip()
         
         # ```json ... ``` 제거
         if sentiment_text.startswith("```"):

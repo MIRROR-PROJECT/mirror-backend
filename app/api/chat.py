@@ -135,8 +135,7 @@ async def chat_with_tutor(
             problem_log_id=request.problem_log_id,
             role="user",
             content=request.message,
-            student_sentiment=None,
-            created_at=datetime.utcnow()
+            student_sentiment=None
         )
         db.add(user_msg)
         await db.flush()
@@ -149,7 +148,6 @@ async def chat_with_tutor(
             role="assistant",
             content=ai_response["assistant_message"],
             student_sentiment=ai_response["student_sentiment"].get("learning_signal"),  # 간단한 요약만 저장
-            created_at=datetime.utcnow()
         )
         db.add(assistant_msg)
         await db.flush()
