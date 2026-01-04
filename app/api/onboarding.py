@@ -32,6 +32,8 @@ async def select_role(
     current_user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    print(f"🔍 받은 current_user_id: {current_user_id}")
+    print(f"🔍 current_user_id 타입: {type(current_user_id)}")
     """
     역할 선택 API
 
@@ -45,6 +47,8 @@ async def select_role(
         # 0. 현재 사용자 조회
         result = await db.execute(select(User).filter(User.id == current_user_id))
         current_user = result.scalars().first()
+
+        print(f"🔍 DB 조회 결과: {current_user}")
 
         if not current_user:
             raise HTTPException(
