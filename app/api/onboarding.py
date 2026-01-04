@@ -20,72 +20,87 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/role",
-    response_model=RoleSelectionResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="사용자 역할 선택 및 저장",
-    description="온보딩 과정에서 사용자가 역할(학생/선생님/학부모)을 선택하여 저장합니다."
-)
+@router.post("/role")
 async def select_role(
     request: RoleSelectionRequest,
     current_user_id: str = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    역할 선택 API
-
-    - **role**: student, teacher, parent 중 하나
-    - 역할에 따라 student_profiles, teacher_profiles, parent_profiles 테이블에 레코드 생성
-    - users 테이블의 role 필드 업데이트
-    - JWT 토큰 재발급 권장 (role 정보 포함)
-    """
-
     try:
+        print("=" * 50)
+        print("🚀 역할 선택 API 시작")
+        print("=" * 50)
         print(f"🔍 받은 current_user_id: {current_user_id}")
         print(f"🔍 current_user_id 타입: {type(current_user_id)}")
+        print(f"📝 요청된 역할: {request.role.value}")
+        
+        # 🔍 DB에 있는 모든 user 확인 (디버깅용)
+        all_users_result = await db.execute(select(User))
+        all_users = all_users_result.scalars().all()
+        print(f"\n📊 DB의 총 user 수: {len(all_users)}")
+        for idx, user in enumerate(all_users[:5], 1):  # 최대 5개만 출력
+            print(f"  {idx}. ID: {user.id} | Email: {user.email} | Name: {user.name} | Role: {user.role}")
+        if len(all_users) > 5:
+            print(f"  ... 외 {len(all_users) - 5}개")
+        
+        # 찾으려는 user_id가 DB에 존재하는지 확인
+        all_user_ids = [str(u.id) for u in all_users]
+        print(f"\n❓ 찾으려는 user_id가 DB에 존재? {current_user_id in all_user_ids}")
         
         # 0. 현재 사용자 조회
+        print(f"\n🔎 User 조회 시작: User.id == {current_user_id}")
         result = await db.execute(select(User).filter(User.id == current_user_id))
         current_user = result.scalars().first()
-
-        # 🆕 DB에 없으면 자동 생성
+        
+        if current_user:
+            print(f"✅ User 조회 성공!")
+            print(f"   - ID: {current_user.id}")
+            print(f"   - Email: {current_user.email}")
+            print(f"   - Name: {current_user.name}")
+            print(f"   - Role: {current_user.role}")
+        else:
+            print(f"❌ User 조회 실패 - DB에 존재하지 않음")
+        
+        # 🆕 User가 없으면 에러 (프론트엔드가 먼저 생성해야 함)
         if not current_user:
-            print(f"⚠️ DB에 user 없음. 자동 생성 시작...")
-            
-            current_user = User(
-                id=current_user_id,
-                email=f"{current_user_id}@temp.com",  # 임시 이메일
-                # password_hash는 Supabase Auth가 관리하므로 불필요
+            print(f"\n🚫 404 에러 발생: 사용자를 찾을 수 없습니다")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="사용자를 찾을 수 없습니다. 먼저 회원가입을 완료해주세요."
             )
-            db.add(current_user)
-            await db.flush()  # ID 생성을 위해 flush (commit 대신)
-            print(f"✅ User 자동 생성 완료: {current_user.id}")
-
+        
         # 1. 이미 역할이 설정되어 있는지 확인
+        print(f"\n🔒 역할 중복 확인 중...")
+        print(f"   현재 역할: {current_user.role}")
+        
         if current_user.role is not None and current_user.role != "STUDENT":
+            print(f"🚫 409 에러 발생: 이미 역할 설정됨 ({current_user.role})")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="이미 역할이 설정되어 있습니다"
             )
-
-        role_id: Optional[uuid.UUID] = None
+        
+        print(f"✅ 역할 중복 없음 - 진행 가능")
+        
+        role_id = None
         role_str = request.role.value
-
+        
         # 2. 역할에 따라 각 테이블에 레코드 생성
+        print(f"\n📝 역할별 프로필 생성 시작: {role_str}")
+        
         if request.role == RoleType.STUDENT:
-            # student_profiles 테이블에 레코드 생성
+            print(f"👨‍🎓 StudentProfile 생성 중...")
             new_student = StudentProfile(
                 id=uuid.uuid4(),
                 user_id=current_user.id,
             )
             db.add(new_student)
-            await db.flush()  # ID 생성을 위해 flush
+            await db.flush()
             role_id = new_student.id
-            print(f"✅ StudentProfile 생성: {role_id}")
-
+            print(f"✅ StudentProfile 생성 완료: {role_id}")
+            
         elif request.role == RoleType.TEACHER:
-            # teacher_profiles 테이블에 레코드 생성
+            print(f"👨‍🏫 TeacherProfile 생성 중...")
             new_teacher = TeacherProfile(
                 id=uuid.uuid4(),
                 user_id=current_user.id,
@@ -93,10 +108,10 @@ async def select_role(
             db.add(new_teacher)
             await db.flush()
             role_id = new_teacher.id
-            print(f"✅ TeacherProfile 생성: {role_id}")
-
+            print(f"✅ TeacherProfile 생성 완료: {role_id}")
+            
         elif request.role == RoleType.PARENT:
-            # parent_profiles 테이블에 레코드 생성
+            print(f"👨‍👩‍👧 ParentProfile 생성 중...")
             new_parent = ParentProfile(
                 id=uuid.uuid4(),
                 user_id=current_user.id,
@@ -104,37 +119,61 @@ async def select_role(
             db.add(new_parent)
             await db.flush()
             role_id = new_parent.id
-            print(f"✅ ParentProfile 생성: {role_id}")
-
-        # 3. users 테이블 업데이트
+            print(f"✅ ParentProfile 생성 완료: {role_id}")
+        
+        # 3. users 테이블의 role만 업데이트 (name은 건드리지 않음!)
+        print(f"\n🔄 User 테이블 role 업데이트 중...")
+        print(f"   변경 전: {current_user.role}")
         current_user.role = role_str
-        print(f"✅ User role 업데이트: {role_str}")
-
+        print(f"   변경 후: {current_user.role}")
+        
         # 4. 커밋
+        print(f"\n💾 DB 커밋 시작...")
         await db.commit()
-        await db.refresh(current_user)
         print(f"✅ DB 커밋 완료")
-
-        # 5. 응답 데이터 생성
+        
+        await db.refresh(current_user)
+        print(f"🔄 User 객체 새로고침 완료")
+        
+        # 5. 응답
+        print(f"\n📦 응답 데이터 생성 중...")
         response_data = RoleSelectionData(
             user_id=current_user.id,
             role=role_str,
             role_id=role_id
         )
-
+        print(f"   - user_id: {response_data.user_id}")
+        print(f"   - role: {response_data.role}")
+        print(f"   - role_id: {response_data.role_id}")
+        
+        print(f"\n🎉 역할 선택 API 성공!")
+        print("=" * 50)
+        
         return RoleSelectionResponse.success_res(
             data=response_data,
             message="역할이 성공적으로 등록되었습니다",
             code=201
         )
-
-    except HTTPException:
+        
+    except HTTPException as http_exc:
+        print(f"\n⚠️ HTTPException 발생")
+        print(f"   상태 코드: {http_exc.status_code}")
+        print(f"   상세 메시지: {http_exc.detail}")
         await db.rollback()
-        print(f"❌ HTTPException 발생 - 롤백")
+        print(f"🔙 DB 롤백 완료")
+        print("=" * 50)
         raise
+        
     except Exception as e:
+        print(f"\n❌ 예상치 못한 에러 발생!")
+        print(f"   에러 타입: {type(e).__name__}")
+        print(f"   에러 메시지: {str(e)}")
+        import traceback
+        print(f"\n📋 전체 스택 트레이스:")
+        print(traceback.format_exc())
         await db.rollback()
-        print(f"❌ 예외 발생: {str(e)}")
+        print(f"🔙 DB 롤백 완료")
+        print("=" * 50)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"서버 오류가 발생했습니다: {str(e)}"
