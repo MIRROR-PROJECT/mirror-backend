@@ -30,7 +30,10 @@ from ..schemas import (
     AddStudentResponseData,
     TeacherClassListResponse,
     TeacherClassListData,
-    TeacherClassItem
+    TeacherClassItem,
+    TeacherProfileRequest,
+    TeacherProfileResponse,
+    TeacherProfileResponseData,
 )
 
 from ..dependencies import get_current_user
@@ -39,6 +42,74 @@ router = APIRouter(
     prefix="/teacher",
     tags=["teacher"]
 )
+
+
+@router.post(
+    "/profile",
+    response_model=TeacherProfileResponse,
+    summary="선생님 상세 정보 등록",
+    description="선생님의 전화번호와 학원명을 등록합니다."
+)
+async def update_teacher_profile(
+    request: TeacherProfileRequest,
+    current_user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    선생님 상세 정보 등록
+
+    - **phone_number**: 선생님 연락처 (예: 010-1234-5678)
+    - **academy_name**: 소속 학원명
+    """
+    try:
+        # 1. User 레코드 찾기
+        user_result = await db.execute(
+            select(User).filter(User.id == current_user_id)
+        )
+        user = user_result.scalars().first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
+
+        # 2. TeacherProfile 레코드 찾기
+        teacher_profile_result = await db.execute(
+            select(TeacherProfile).filter(TeacherProfile.user_id == current_user_id)
+        )
+        teacher_profile = teacher_profile_result.scalars().first()
+        if not teacher_profile:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="선생님 프로필을 찾을 수 없습니다.")
+
+        # 3. 정보 업데이트
+        user.phone_number = request.phone_number
+        teacher_profile.academy_name = request.academy_name
+        
+        db.add(user)
+        db.add(teacher_profile)
+        await db.commit()
+        await db.refresh(user)
+        await db.refresh(teacher_profile)
+
+        # 4. 응답 데이터 생성
+        response_data = TeacherProfileResponseData(
+            teacher_id=teacher_profile.id,
+            academy_name=teacher_profile.academy_name
+        )
+        
+        return TeacherProfileResponse.success_res(
+            data=response_data,
+            message="선생님 정보가 성공적으로 등록되었습니다"
+        )
+
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"서버 오류가 발생했습니다: {str(e)}"
+        )
 
 
 def calculate_progress_trend(current: float, previous: float) -> str:

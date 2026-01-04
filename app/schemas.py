@@ -1059,3 +1059,47 @@ class AddStudentResponseData(BaseModel):
 class AddStudentResponse(BaseResponse[AddStudentResponseData]):
     """POST /teacher/students 응답"""
     pass
+
+
+# --- [선생님 - 상세 정보 등록 스키마] ---
+
+class TeacherProfileRequest(BaseModel):
+    """선생님 상세 정보 등록 요청"""
+    phone_number: str = Field(..., description="선생님 연락처 (예: 010-1234-5678)")
+    academy_name: str = Field(..., description="소속 학원명")
+
+    @field_validator('phone_number')
+    def validate_phone(cls, v):
+        """전화번호 형식 검증"""
+        pattern = r'^010-\d{4}-\d{4}$'
+        if not re.match(pattern, v):
+            raise ValueError('전화번호 형식이 올바르지 않습니다 (010-XXXX-XXXX)')
+        return v
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "phone_number": "010-1234-5678",
+                "academy_name": "일등 수학학원"
+            }
+        }
+    )
+
+class TeacherProfileResponseData(BaseModel):
+    """선생님 상세 정보 등록 응답 데이터"""
+    teacher_id: UUID = Field(..., description="선생님 프로필 ID")
+    academy_name: str = Field(..., description="소속 학원명")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "teacher_id": "d1ffcc88-8d1c-5fg9-cc7e-7cc0ce491b44",
+                "academy_name": "일등 수학학원"
+            }
+        }
+    )
+
+class TeacherProfileResponse(BaseResponse[TeacherProfileResponseData]):
+    """POST /teacher/profile 응답"""
+    pass
