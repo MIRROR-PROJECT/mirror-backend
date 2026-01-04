@@ -1110,9 +1110,10 @@ class TeacherProfileResponse(BaseResponse[TeacherProfileResponseData]):
 class ParentProfileRequest(BaseModel):
     """학부모 상세 정보 등록 요청"""
     child_name: str = Field(..., description="자녀의 이름")
+    child_phone: str = Field(..., description="자녀 연락처")
     parent_phone: str = Field(..., description="학부모 연락처")
 
-    @field_validator('parent_phone')
+    @field_validator('parent_phone', 'child_phone')
     def validate_phone(cls, v):
         """전화번호 형식 검증"""
         pattern = r'^010-\d{4}-\d{4}$'
@@ -1124,6 +1125,7 @@ class ParentProfileRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "child_name": "김철수",
+                "child_phone": "010-1111-2222",
                 "parent_phone": "010-9876-5432"
             }
         }

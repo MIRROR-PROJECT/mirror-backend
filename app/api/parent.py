@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 import uuid
 
 from ..database import get_db
@@ -21,7 +21,7 @@ router = APIRouter(
     "/profile",
     response_model=ParentProfileResponse,
     summary="학부모 상세 정보 등록",
-    description="학부모의 전화번호와 자녀 이름을 등록합니다."
+    description="학부모의 전화번호와 자녀 정보를 등록합니다."
 )
 async def update_parent_profile(
     request: ParentProfileRequest,
@@ -32,6 +32,7 @@ async def update_parent_profile(
     학부모 상세 정보 등록
 
     - **child_name**: 자녀 이름
+    - **child_phone**: 자녀 연락처
     - **parent_phone**: 학부모 연락처
     """
     try:
@@ -56,13 +57,19 @@ async def update_parent_profile(
             )
             db.add(parent_profile)
 
-        # 3. 자녀 이름으로 학생 찾기
+        # 3. 자녀 이름과 전화번호로 학생 찾기
         student_user_result = await db.execute(
-            select(User).filter(User.name == request.child_name, User.role == 'STUDENT')
+            select(User).filter(
+                and_(
+                    User.name == request.child_name,
+                    User.phone_number == request.child_phone,
+                    User.role == 'STUDENT'
+                )
+            )
         )
         student_user = student_user_result.scalars().first()
         if not student_user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="자녀(학생)를 찾을 수 없습니다.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="자녀(학생)를 찾을 수 없습니다. 이름과 전화번호를 확인해주세요.")
         
         student_profile_result = await db.execute(
             select(StudentProfile).filter(StudentProfile.user_id == student_user.id)
@@ -80,8 +87,11 @@ async def update_parent_profile(
             parent_profile.children_ids = []
 
         # 중복 추가 방지
-        if student_profile.id not in parent_profile.children_ids:
-            parent_profile.children_ids.append(student_profile.id)
+        if str(student_profile.id) not in parent_profile.children_ids:
+            # SQLAlchemy가 변경을 감지하도록 새 리스트를 할당
+            new_children_ids = list(parent_profile.children_ids)
+            new_children_ids.append(str(student_profile.id))
+            parent_profile.children_ids = new_children_ids
         
         db.add(user)
         db.add(parent_profile)
