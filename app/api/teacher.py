@@ -70,20 +70,27 @@ async def update_teacher_profile(
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="사용자를 찾을 수 없습니다.")
 
-        # 2. TeacherProfile 레코드 찾기
+        # 2. TeacherProfile 레코드 찾기 또는 생성
         teacher_profile_result = await db.execute(
             select(TeacherProfile).filter(TeacherProfile.user_id == current_user_id)
         )
         teacher_profile = teacher_profile_result.scalars().first()
+        
         if not teacher_profile:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="선생님 프로필을 찾을 수 없습니다.")
+            teacher_profile = TeacherProfile(
+                id=uuid.uuid4(),
+                user_id=current_user_id,
+                academy_name=request.academy_name
+            )
+            db.add(teacher_profile)
+        else:
+            teacher_profile.academy_name = request.academy_name
+            db.add(teacher_profile)
 
         # 3. 정보 업데이트
         user.phone_number = request.phone_number
-        teacher_profile.academy_name = request.academy_name
-        
         db.add(user)
-        db.add(teacher_profile)
+        
         await db.commit()
         await db.refresh(user)
         await db.refresh(teacher_profile)
