@@ -243,12 +243,16 @@ def _build_prompt(
         next_monday = today + timedelta(days=days_until_monday)
         start_date = next_monday.strftime("%Y-%m-%d")
     
+    # subjects가 None이거나 리스트가 아닌 경우 안전하게 처리
+    subjects_list = student_data.get('subjects') or []
+    subjects_str = ', '.join(subjects_list) if isinstance(subjects_list, (list, tuple)) else str(subjects_list)
+
     return PROMPT_TEMPLATE.format(
         student_id=student_data['student_id'],
         student_name=student_data.get('student_name', '학생'),
         school_grade=student_data['school_grade'],
         semester=student_data['semester'],
-        subjects=', '.join(student_data['subjects']),
+        subjects=subjects_str,
         cognitive_type=student_data['cognitive_type'],
         solving_habits=solving_habits,
         weekly_schedule=weekly_schedule,
@@ -358,6 +362,10 @@ async def regenerate_daily_plan_for_date(
     }
     day_kr = day_map[target_date.weekday()]
     
+    # subjects가 None이거나 리스트가 아닌 경우 안전하게 처리
+    subjects_list = student_data.get('subjects') or []
+    subjects_str = ', '.join(subjects_list) if isinstance(subjects_list, (list, tuple)) else str(subjects_list)
+
     # 3. 일일 계획 생성 프롬프트
     DAILY_PLAN_PROMPT = f"""
 당신은 학생 맞춤형 학습 계획을 생성하는 AI입니다.
@@ -365,7 +373,7 @@ async def regenerate_daily_plan_for_date(
 ## 학생 정보
 - 이름: {student_data.get('student_name', '학생')}
 - 학년: {student_data['school_grade']}학년 {student_data['semester']}학기
-- 과목: {', '.join(student_data['subjects'])}
+- 과목: {subjects_str}
 - 인지 유형: {student_data['cognitive_type']}
 
 ## 인지 유형별 학습 전략

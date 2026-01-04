@@ -8,7 +8,7 @@ from .api import setup, routines, my, onboarding, auth
 async def init_db():
     async with database.engine.begin() as conn:
         # 개발 환경을 위해 시작 시 테이블 삭제 후 재생성
-        await conn.run_sync(models.Base.metadata.drop_all)
+        # await conn.run_sync(models.Base.metadata.drop_all)
         await conn.run_sync(models.Base.metadata.create_all)
 
 app = FastAPI(title="Mirror AI Backend")
