@@ -1103,3 +1103,47 @@ class TeacherProfileResponseData(BaseModel):
 class TeacherProfileResponse(BaseResponse[TeacherProfileResponseData]):
     """POST /teacher/profile 응답"""
     pass
+
+
+# --- [학부모 - 상세 정보 등록 스키마] ---
+
+class ParentProfileRequest(BaseModel):
+    """학부모 상세 정보 등록 요청"""
+    child_name: str = Field(..., description="자녀의 이름")
+    parent_phone: str = Field(..., description="학부모 연락처")
+
+    @field_validator('parent_phone')
+    def validate_phone(cls, v):
+        """전화번호 형식 검증"""
+        pattern = r'^010-\d{4}-\d{4}$'
+        if not re.match(pattern, v):
+            raise ValueError('전화번호 형식이 올바르지 않습니다 (010-XXXX-XXXX)')
+        return v
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "child_name": "김철수",
+                "parent_phone": "010-9876-5432"
+            }
+        }
+    )
+
+class ParentProfileResponseData(BaseModel):
+    """학부모 상세 정보 등록 응답 데이터"""
+    parent_id: UUID = Field(..., description="학부모 프로필 ID")
+    child_name: str = Field(..., description="자녀의 이름")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "parent_id": "e2ggdd99-9e2d-6hh0-dd8f-8dd1df502c55",
+                "child_name": "김철수"
+            }
+        }
+    )
+
+class ParentProfileResponse(BaseResponse[ParentProfileResponseData]):
+    """POST /parents/profile 응답"""
+    pass

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import models, database, schemas
-from .api import setup, routines, my, onboarding, auth, studyroom, chat, teacher, payment
+from .api import setup, routines, my, onboarding, auth, studyroom, chat, teacher, payment, parent
 
 # --- 비동기 DB 초기화 함수 ---
 async def init_db():
@@ -46,6 +46,7 @@ app.include_router(auth.router)
 app.include_router(studyroom.router) 
 app.include_router(chat.router) 
 app.include_router(teacher.router) 
+app.include_router(parent.router)
 
 # 결제 라우터 등록
 app.include_router(payment.router)
