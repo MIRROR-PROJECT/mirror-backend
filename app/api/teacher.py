@@ -4,8 +4,9 @@ from sqlalchemy import select, and_, func, desc
 from sqlalchemy.orm import selectinload
 from typing import Optional
 from datetime import datetime, timedelta
-from collections import Counter
+from collections import Counter, defaultdict
 from uuid import UUID
+import uuid
 
 from ..database import get_db
 from ..models import (
@@ -23,8 +24,15 @@ from ..schemas import (
     StudentProgressDataSimple,
     StudentProgressSimple,
     WeaknessAnalysis,
-    ClassInfoBasic
+    ClassInfoBasic,
+    AddStudentRequest,
+    AddStudentResponse,
+    AddStudentResponseData,
+    TeacherClassListResponse,
+    TeacherClassListData,
+    TeacherClassItem
 )
+
 from ..dependencies import get_current_user
 
 router = APIRouter(
@@ -396,6 +404,326 @@ async def get_students_progress_clean(
         return StudentProgressResponseSimple.success_res(
             data=response_data,
             message="학생 진도율 조회 성공"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"서버 오류가 발생했습니다: {str(e)}"
+        )
+
+
+
+
+@router.post(
+    "/students",
+    response_model=AddStudentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="학생 추가",
+    description="선생님이 자신의 반에 학생을 추가합니다."
+)
+async def add_student(
+    request: AddStudentRequest,
+    current_user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    학생 추가
+    
+    - **student_name**: 학생 이름
+    - **phone_number**: 전화번호 (010-XXXX-XXXX)
+    - **class_name**: 반 이름 (선생님의 기존 반 중 선택)
+    - **email**: 이메일 (선택, 없으면 자동 생성)
+    - **school_grade**: 학년 (선택, 1-12)
+    """
+    
+    try:
+        # 1. 선생님 프로필 확인
+        teacher_result = await db.execute(
+            select(TeacherProfile).filter(TeacherProfile.user_id == current_user_id)
+        )
+        teacher = teacher_result.scalars().first()
+        
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="선생님 권한이 필요합니다"
+            )
+        
+        # 2. 해당 반이 선생님의 반 목록에 있는지 확인
+        class_check_result = await db.execute(
+            select(StudentClassMatch)
+            .filter(
+                and_(
+                    StudentClassMatch.teacher_id == current_user_id,
+                    StudentClassMatch.class_name == request.class_name
+                )
+            )
+            .limit(1)
+        )
+        existing_class = class_check_result.scalars().first()
+        
+        if not existing_class:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="해당 반을 찾을 수 없습니다. 선생님의 반 목록을 확인해주세요"
+            )
+        
+        academy_name = existing_class.academy_name
+        
+        # 3. 전화번호로 기존 User 찾기
+        user_result = await db.execute(
+            select(User).filter(User.phone_number == request.phone_number)
+        )
+        existing_user = user_result.scalars().first()
+
+        # 4. 기존 User가 있는 경우
+        if existing_user:
+            # 4-1. StudentProfile 찾기
+            profile_result = await db.execute(
+                select(StudentProfile).filter(StudentProfile.user_id == existing_user.id)
+            )
+            existing_profile = profile_result.scalars().first()
+
+            # 4-2. StudentProfile이 없으면 생성
+            if not existing_profile:
+                existing_profile = StudentProfile(
+                    id=uuid.uuid4(),
+                    user_id=existing_user.id,
+                    school_grade=request.school_grade or existing_user.school_grade if hasattr(existing_user, 'school_grade') else None,
+                    semester=None,
+                    subjects=[],
+                    cognitive_type=None,
+                    mastery_map={},
+                    error_patterns=[],
+                    interaction_style=None,
+                    streak_days=0,
+                    total_points=0
+                )
+                db.add(existing_profile)
+                await db.flush()
+
+            # 4-3. 이미 해당 반에 있는지 체크
+            class_match_result = await db.execute(
+                select(StudentClassMatch).filter(
+                    and_(
+                        StudentClassMatch.student_id == existing_profile.id,
+                        StudentClassMatch.class_name == request.class_name,
+                        StudentClassMatch.teacher_id == current_user_id
+                    )
+                )
+            )
+            existing_class_match = class_match_result.scalars().first()
+
+            if existing_class_match:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="이미 해당 반에 등록된 학생입니다"
+                )
+
+            # 4-4. 반에만 추가
+            new_class_match = StudentClassMatch(
+                id=uuid.uuid4(),
+                student_id=existing_profile.id,
+                teacher_id=current_user_id,
+                class_name=request.class_name,
+                academy_name=academy_name,
+                class_code=None,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_class_match)
+            await db.commit()
+
+            response_data = AddStudentResponseData(
+                student_id=existing_profile.id,
+                user_id=existing_user.id,
+                student_name=existing_user.name,
+                phone_number=existing_user.phone_number,
+                email=existing_user.email,
+                class_name=request.class_name,
+                academy_name=academy_name,
+                created_at=existing_user.created_at.isoformat() + "Z"
+            )
+
+        # 5. 기존 User가 없는 경우 - 새로 생성
+        else:
+            # 5-1. 이메일 생성
+            email = request.email
+            if not email:
+                phone_cleaned = request.phone_number.replace('-', '')
+                email = f"{phone_cleaned}@student.mirror.com"
+
+            # 5-2. 이메일 중복 체크
+            email_check_result = await db.execute(
+                select(User).filter(User.email == email)
+            )
+            if email_check_result.scalars().first():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="이미 등록된 이메일입니다"
+                )
+
+            # 5-3. User 생성
+            new_user = User(
+                id=uuid.uuid4(),
+                email=email,
+                name=request.student_name,
+                phone_number=request.phone_number,
+                role="STUDENT",
+                created_at=datetime.utcnow()
+            )
+            db.add(new_user)
+            await db.flush()
+
+            # 5-4. StudentProfile 생성
+            new_student_profile = StudentProfile(
+                id=uuid.uuid4(),
+                user_id=new_user.id,
+                school_grade=request.school_grade,
+                semester=None,
+                subjects=[],
+                cognitive_type=None,
+                mastery_map={},
+                error_patterns=[],
+                interaction_style=None,
+                streak_days=0,
+                total_points=0
+            )
+            db.add(new_student_profile)
+            await db.flush()
+
+            # 5-5. StudentClassMatch 생성
+            new_class_match = StudentClassMatch(
+                id=uuid.uuid4(),
+                student_id=new_student_profile.id,
+                teacher_id=current_user_id,
+                class_name=request.class_name,
+                academy_name=academy_name,
+                class_code=None,
+                created_at=datetime.utcnow()
+            )
+            db.add(new_class_match)
+            await db.commit()
+
+            # 5-6. 응답 데이터 생성
+            response_data = AddStudentResponseData(
+                student_id=new_student_profile.id,
+                user_id=new_user.id,
+                student_name=request.student_name,
+                phone_number=request.phone_number,
+                email=email,
+                class_name=request.class_name,
+                academy_name=academy_name,
+                created_at=new_user.created_at.isoformat() + "Z"
+            )
+        
+        return AddStudentResponse.success_res(
+            data=response_data,
+            message="학생 추가 성공"
+        )
+        
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"서버 오류가 발생했습니다: {str(e)}"
+        )
+
+
+
+
+
+@router.get(
+    "/my-classes",
+    response_model=TeacherClassListResponse,
+    summary="선생님 반 목록 조회",
+    description="선생님이 담당하는 반 목록을 조회합니다."
+)
+async def get_my_classes(
+    current_user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    선생님 반 목록 조회
+    
+    Returns:
+        - 전체 반 수
+        - 반별 정보 (반 이름, 학원, 학생 수)
+    """
+    
+    try:
+        # 1. 선생님 프로필 확인
+        teacher_result = await db.execute(
+            select(TeacherProfile).filter(TeacherProfile.user_id == current_user_id)
+        )
+        teacher = teacher_result.scalars().first()
+        
+        if not teacher:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="선생님 권한이 필요합니다"
+            )
+        
+        # 2. 선생님의 모든 StudentClassMatch 조회
+        matches_result = await db.execute(
+            select(StudentClassMatch)
+            .filter(StudentClassMatch.teacher_id == current_user_id)
+        )
+        all_matches = matches_result.scalars().all()
+        
+        # 반이 없는 경우
+        if not all_matches:
+            return TeacherClassListResponse.success_res(
+                data=TeacherClassListData(
+                    total_classes=0,
+                    classes=[]
+                ),
+                message="반 목록 조회 성공"
+            )
+        
+        # 3. 반별로 그룹핑 (class_name 기준)
+        class_groups = defaultdict(list)
+        
+        for match in all_matches:
+            class_groups[match.class_name].append(match)
+        
+        # 4. 반 목록 생성
+        class_items = []
+        
+        for class_name, matches in class_groups.items():
+            # 첫 번째 match의 정보 사용 (반 대표 ID, 학원 이름)
+            first_match = matches[0]
+            
+            class_items.append(
+                TeacherClassItem(
+                    class_id=first_match.id,
+                    class_name=class_name,
+                    academy_name=first_match.academy_name,
+                    student_count=len(matches)  # 해당 반의 학생 수
+                )
+            )
+        
+        # 5. 반 이름순 정렬
+        class_items.sort(key=lambda x: x.class_name)
+        
+        # 6. 응답 데이터 생성
+        response_data = TeacherClassListData(
+            total_classes=len(class_items),
+            classes=class_items
+        )
+        
+        return TeacherClassListResponse.success_res(
+            data=response_data,
+            message="반 목록 조회 성공"
         )
         
     except HTTPException:

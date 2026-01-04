@@ -5,6 +5,7 @@ from typing import List, Optional, Generic, TypeVar, Any
 from .models import CognitiveType
 import uuid
 from enum import Enum
+import re
 
 # --- [추가] 공통 응답 규격 ---
 T = TypeVar("T")
@@ -933,4 +934,128 @@ class StudentProgressDataSimple(BaseModel):
 
 class StudentProgressResponseSimple(BaseResponse[StudentProgressDataSimple]):
     """GET /teacher/classes/{class_id}/students/progress 응답"""
+    pass
+
+
+# --- [선생님 - 반 목록 조회 스키마] ---
+
+class TeacherClassItem(BaseModel):
+    """선생님 반 정보"""
+    class_id: UUID = Field(..., description="반 ID (StudentClassMatch의 대표 id)")
+    class_name: str = Field(..., description="반 이름")
+    academy_name: Optional[str] = Field(None, description="학원 이름")
+    student_count: int = Field(..., description="해당 반 학생 수", ge=0)
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "class_id": "class-001-uuid",
+                "class_name": "고2 수학 A반",
+                "academy_name": "서울학원",
+                "student_count": 20
+            }
+        }
+    )
+
+
+class TeacherClassListData(BaseModel):
+    """선생님 반 목록 데이터"""
+    total_classes: int = Field(..., description="전체 반 수", ge=0)
+    classes: List[TeacherClassItem] = Field(..., description="반 목록")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "total_classes": 3,
+                "classes": [
+                    {
+                        "class_id": "class-001-uuid",
+                        "class_name": "고1 수학 기초반",
+                        "academy_name": "서울학원",
+                        "student_count": 15
+                    },
+                    {
+                        "class_id": "class-002-uuid",
+                        "class_name": "고2 수학 A반",
+                        "academy_name": "서울학원",
+                        "student_count": 20
+                    }
+                ]
+            }
+        }
+    )
+
+
+class TeacherClassListResponse(BaseResponse[TeacherClassListData]):
+    """GET /teacher/my-classes 응답"""
+    pass
+
+
+
+# --- [선생님 - 학생 추가 스키마] ---
+
+import re
+from pydantic import field_validator
+
+class AddStudentRequest(BaseModel):
+    """학생 추가 요청"""
+    student_name: str = Field(..., description="학생 이름", min_length=2, max_length=50)
+    phone_number: str = Field(..., description="전화번호 (010-XXXX-XXXX)")
+    class_name: str = Field(..., description="반 이름 (선생님의 기존 반 중 선택)")
+    email: Optional[str] = Field(None, description="이메일 (없으면 자동 생성)")
+    school_grade: Optional[int] = Field(None, description="학년 (1-12)", ge=1, le=12)
+
+    @field_validator('phone_number')
+    def validate_phone(cls, v):
+        """전화번호 형식 검증"""
+        pattern = r'^010-\d{4}-\d{4}$'
+        if not re.match(pattern, v):
+            raise ValueError('전화번호 형식이 올바르지 않습니다 (010-XXXX-XXXX)')
+        return v
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "student_name": "박민수",
+                "phone_number": "010-1234-5678",
+                "class_name": "고2 수학 A반",
+                "email": "student001@example.com",
+                "school_grade": 11
+            }
+        }
+    )
+
+
+class AddStudentResponseData(BaseModel):
+    """학생 추가 응답 데이터"""
+    student_id: UUID = Field(..., description="생성된 학생 프로필 ID")
+    user_id: UUID = Field(..., description="생성된 유저 ID")
+    student_name: str = Field(..., description="학생 이름")
+    phone_number: str = Field(..., description="전화번호")
+    email: str = Field(..., description="이메일")
+    class_name: str = Field(..., description="배정된 반 이름")
+    academy_name: Optional[str] = Field(None, description="학원 이름")
+    created_at: str = Field(..., description="생성 시각 (ISO 8601)")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "student_id": "student-001-uuid",
+                "user_id": "user-001-uuid",
+                "student_name": "박민수",
+                "phone_number": "010-1234-5678",
+                "email": "student001@example.com",
+                "class_name": "고2 수학 A반",
+                "academy_name": "서울학원",
+                "created_at": "2026-01-04T12:00:00Z"
+            }
+        }
+    )
+
+
+class AddStudentResponse(BaseResponse[AddStudentResponseData]):
+    """POST /teacher/students 응답"""
     pass
