@@ -427,48 +427,31 @@ async def get_today_mission(
         # 시간대 생성 (1시간 단위)
         current_time = datetime.combine(today, routine.start_time)
         end_time = datetime.combine(today, routine.end_time)
-        
+
         print(f"\n루틴: {routine.start_time} ~ {routine.end_time}")
-        
-        while current_time < end_time:
+
+        while current_time < end_time and task_index < len(tasks):
             time_slot_str = current_time.strftime("%H:%M")
-            
-            # 해당 시간대에 배치할 Task 찾기
-            if task_index < len(tasks):
-                task = tasks[task_index]
-                
-                print(f"  {time_slot_str}: [{task.category}] {task.title} ({task.assigned_minutes}분)")
-                
-                task_item = schemas.ScheduleTaskItem(
-                    task_id=task.id,
-                    category=task.category,
-                    title=task.title,
-                    subtitle="클릭하여 완료 표시",
-                    assigned_minutes=task.assigned_minutes,
-                    is_completed=task.is_completed,
-                    status="완료" if task.is_completed else "진행 가능"
-                )
-                
-                task_index += 1
-            else:
-                # Task가 없으면 "일정 없음"
-                print(f"  {time_slot_str}: [일정 없음] 잠김")
-                
-                task_item = schemas.ScheduleTaskItem(
-                    task_id=uuid.uuid4(),
-                    category="일정 없음",
-                    title="일정 없음",
-                    subtitle="휴식 시간 (1시간)",
-                    assigned_minutes=60,
-                    is_completed=False,
-                    status="잠김"
-                )
-            
+            task = tasks[task_index]
+
+            print(f"  {time_slot_str}: [{task.category}] {task.title} ({task.assigned_minutes}분)")
+
+            task_item = schemas.ScheduleTaskItem(
+                task_id=task.id,
+                category=task.category,
+                title=task.title,
+                subtitle="클릭하여 완료 표시",
+                assigned_minutes=task.assigned_minutes,
+                is_completed=task.is_completed,
+                status="완료" if task.is_completed else "진행 가능"
+            )
+
             schedule.append(schemas.TimeSlotSchedule(
                 time_slot=time_slot_str,
                 task=task_item
             ))
-            
+
+            task_index += 1
             # 다음 시간대로 (1시간 증가)
             current_time += timedelta(hours=1)
     

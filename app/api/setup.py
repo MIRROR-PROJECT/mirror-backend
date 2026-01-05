@@ -34,7 +34,7 @@ async def create_student_basic_info(
             id=request.user_id,
             email=f"user_{str(request.user_id)[:8]}@example.com",
             name=request.student_name,
-            role="STUDENT"
+            role="student"
         )
         db.add(user)
     else:

@@ -19,7 +19,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String, nullable=False)
-    role = Column(String, default="STUDENT") # "STUDENT", "TEACHER", "PARENT"
+    role = Column(String, default="student") # "student", "teacher", "parent"
     phone_number = Column(String, nullable=True)  # "010-1234-5678"
     created_at = Column(DateTime, default=datetime.now)
 

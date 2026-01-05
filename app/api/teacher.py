@@ -651,7 +651,7 @@ async def add_student(
                 email=email,
                 name=request.student_name,
                 phone_number=request.phone_number,
-                role="STUDENT",
+                role="student",
                 created_at=datetime.utcnow()
             )
             db.add(new_user)

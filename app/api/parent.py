@@ -65,7 +65,7 @@ async def update_parent_profile(
                 and_(
                     User.name == request.child_name,
                     User.phone_number == request.child_phone,
-                    User.role == 'STUDENT'
+                    User.role == 'student'
                 )
             )
         )
@@ -74,7 +74,7 @@ async def update_parent_profile(
         if not student_user:
             # 디버깅: 비슷한 학생들 찾기
             all_students = await db.execute(
-                select(User).filter(User.role == 'STUDENT')
+                select(User).filter(User.role == 'student')
             )
             print(f"❌ 학생을 찾지 못했습니다. DB에 등록된 학생 목록:")
             for s in all_students.scalars().all():
