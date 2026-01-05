@@ -98,7 +98,7 @@ async def generate_tutor_response(
     try:
         # 1. 튜터 응답 생성
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             max_tokens=2000,
             messages=messages
         )
@@ -134,7 +134,7 @@ async def generate_tutor_response(
 """
 
         sentiment_response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": analysis_prompt}]
         )
         

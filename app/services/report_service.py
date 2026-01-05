@@ -78,7 +78,7 @@ Respond ONLY in the following JSON format:
 
         try:
             response = await self.client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "당신은 학생들을 응원하는 AI 튜터입니다."},
                     {"role": "user", "content": prompt}

@@ -36,7 +36,7 @@ async def generate_weekly_plan(
     try:
         # GPT-4o API 호출
         response = await client.chat.completions.create(
-            model="gpt-4o",  # 또는 "gpt-4o-mini"
+            model="gpt-4o-mini",  # 또는 "gpt-4o-mini"
             messages=[
                 # {
                 #     "role": "system",
@@ -454,7 +454,7 @@ async def regenerate_daily_plan_for_date(
         client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
         response = await client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "당신은 학생 맞춤형 학습 계획 전문가입니다. 반드시 순수 JSON 형식으로만 영어로 응답하세요."},
                 {"role": "user", "content": DAILY_PLAN_PROMPT}
