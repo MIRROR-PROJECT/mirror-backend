@@ -2,13 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import models, database, schemas
-from .api import setup, routines, my, onboarding, auth, studyroom, chat, teacher, payment, parent
+from .api import setup, routines, my, onboarding, auth, studyroom, chat, teacher, payment, parent, reports
 
 # --- 비동기 DB 초기화 함수 ---
 async def init_db():
     async with database.engine.begin() as conn:
         # 개발 환경을 위해 시작 시 테이블 삭제 후 재생성
-        # await conn.run_sync(models.Base.metadata.drop_all)
+        await conn.run_sync(models.Base.metadata.drop_all)
         await conn.run_sync(models.Base.metadata.create_all)
 
 app = FastAPI(title="Mirror AI Backend")
@@ -42,11 +42,12 @@ app.include_router(setup.router)
 app.include_router(routines.router)
 app.include_router(my.router)
 app.include_router(onboarding.router)
-app.include_router(auth.router) 
-app.include_router(studyroom.router) 
-app.include_router(chat.router) 
-app.include_router(teacher.router) 
+app.include_router(auth.router)
+app.include_router(studyroom.router)
+app.include_router(chat.router)
+app.include_router(teacher.router)
 app.include_router(parent.router)
+app.include_router(reports.router)
 
 # 결제 라우터 등록
 app.include_router(payment.router)

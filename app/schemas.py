@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator, UUID4
 from uuid import UUID
 from datetime import date, time, datetime
 from typing import List, Optional, Generic, TypeVar, Any
@@ -1149,3 +1149,169 @@ class ParentProfileResponseData(BaseModel):
 class ParentProfileResponse(BaseResponse[ParentProfileResponseData]):
     """POST /parents/profile 응답"""
     pass
+
+
+
+
+# ============================================================================
+# Request 스키마
+# ============================================================================
+
+class SubjectDetailRequest(BaseModel):
+    """과목별 상세 정보"""
+    subject_name: str = Field(..., description="과목명")
+    mission_achievement_rate: float = Field(..., ge=0, le=100, description="미션 달성률 (%)")
+    question_count: int = Field(..., ge=0, description="질문 횟수")
+
+
+class DailyReportCreateRequest(BaseModel):
+    """일간 리포트 생성 요청"""
+    user_id: UUID4 = Field(..., description="유저 고유 식별자 (users 테이블의 ID)")
+    report_date: Optional[str] = Field(None, description="리포트 날짜 (YYYY-MM-DD)")
+    total_study_time: int = Field(..., ge=0, description="총 학습 시간 (분)")
+    achievement_rate: float = Field(..., ge=0, le=100, description="평균 성취도 (%)")
+    question_count: int = Field(..., ge=0, description="총 질문 횟수")
+    most_immersive_subject: str = Field(..., description="가장 몰입한 과목")
+    subject_details: List[SubjectDetailRequest] = Field(..., min_length=1, description="과목별 상세 정보")
+
+    @field_validator('report_date')
+    @classmethod
+    def validate_date(cls, v):
+        """날짜 형식 검증"""
+        if v is None:
+            return date.today().isoformat()
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            raise ValueError("날짜 형식은 YYYY-MM-DD 여야 합니다")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "user_id": "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+                "report_date": "2026-01-04",
+                "total_study_time": 128,
+                "achievement_rate": 77.0,
+                "question_count": 2,
+                "most_immersive_subject": "영어",
+                "subject_details": [
+                    {
+                        "subject_name": "물리",
+                        "mission_achievement_rate": 100.0,
+                        "question_count": 0
+                    },
+                    {
+                        "subject_name": "수학",
+                        "mission_achievement_rate": 50.0,
+                        "question_count": 0
+                    },
+                    {
+                        "subject_name": "영어",
+                        "mission_achievement_rate": 0.0,
+                        "question_count": 2
+                    }
+                ]
+            }
+        }
+
+
+# ============================================================================
+# Response 데이터 스키마
+# ============================================================================
+
+class DailyReportData(BaseModel):
+    """리포트 데이터"""
+    report_id: UUID4 = Field(..., description="시스템에서 생성된 리포트 고유 ID")
+    user_id: UUID4 = Field(..., description="리포트와 연결된 유저 ID")
+    report_date: str = Field(..., description="리포트 날짜")
+    ai_summary_title: str = Field(..., description="AI가 생성한 한 줄 요약 제목")
+    ai_good_point: str = Field(..., description="AI 피드백: 잘한 점")
+    ai_improvement_point: str = Field(..., description="AI 피드백: 개선 포인트")
+    keywords: List[str] = Field(..., description="오늘의 키워드 3개")
+    passion_temp: float = Field(..., description="열정 온도 (36.5 ~ 100.0)")
+    subject_badges: List[str] = Field(..., description="과목별 상태 배지")
+    created_at: str = Field(..., description="리포트 생성 시각 (ISO 8601)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "report_id": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+                "user_id": "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+                "report_date": "2026-01-04",
+                "ai_summary_title": "✨ 균형 잡힌 학습 습관",
+                "ai_good_point": "2시간 8분 동안 성실하게 과제를 수행했습니다.",
+                "ai_improvement_point": "내일은 평소에 어려워했던 과목에 30분만 더 투자해보세요.",
+                "keywords": ["#균형", "#꾸준함", "#성장"],
+                "passion_temp": 52.5,
+                "subject_badges": ["🏃‍♂️ 진도 쑥쑥", "✨ 성실함", "🤔 개념 탐구"],
+                "created_at": "2026-01-04T10:30:00Z"
+            }
+        }
+
+
+class ReportHistoryData(BaseModel):
+    """리포트 히스토리 데이터"""
+    reports: List[DailyReportData]
+    total_count: int
+    date_range: dict
+    statistics: dict
+
+
+# ============================================================================
+# Mirror 프로젝트 표준 응답 형식
+# ============================================================================
+
+class APIResponse(BaseModel):
+    """표준 API 응답"""
+    success: bool = Field(..., description="요청 처리 성공 여부")
+    code: int = Field(..., description="HTTP 상태 코드")
+    message: str = Field(..., description="처리 결과 메시지")
+    data: Optional[DailyReportData] = Field(None, description="응답 데이터")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "code": 201,
+                "message": "일간 리포트 생성 완료",
+                "data": {
+                    "report_id": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+                    "user_id": "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+                    "report_date": "2026-01-04",
+                    "ai_summary_title": "✨ 균형 잡힌 학습 습관",
+                    "ai_good_point": "2시간 8분 동안 성실하게 과제를 수행했습니다.",
+                    "ai_improvement_point": "내일은 평소에 어려워했던 과목에 30분만 더 투자해보세요.",
+                    "keywords": ["#균형", "#꾸준함", "#성장"],
+                    "passion_temp": 52.5,
+                    "subject_badges": ["🏃‍♂️ 진도 쑥쑥", "✨ 성실함", "🤔 개념 탐구"],
+                    "created_at": "2026-01-04T10:30:00Z"
+                }
+            }
+        }
+
+
+class HistoryAPIResponse(BaseModel):
+    """히스토리 API 응답"""
+    success: bool
+    code: int
+    message: str
+    data: Optional[ReportHistoryData] = None
+
+
+class ErrorResponse(BaseModel):
+    """에러 응답"""
+    success: bool = False
+    code: int = Field(..., description="HTTP 에러 코드")
+    message: str = Field(..., description="에러 메시지")
+    data: None = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": False,
+                "code": 400,
+                "message": "입력 데이터 유효성 검증 실패: achievement_rate는 0-100 사이의 값이어야 합니다",
+                "data": None
+            }
+        }

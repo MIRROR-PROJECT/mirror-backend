@@ -1,9 +1,10 @@
 import enum
 import uuid
 from datetime import datetime, date, timezone
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Date, Enum, Time, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, Date, Enum, Time, Text, Index, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from .database import Base
 
 # 1. 인지 유형
@@ -256,5 +257,83 @@ class StudentSentimentAnalysisLog(Base):
     learning_signal = Column(String)
     needs_intervention = Column(Boolean)
     confidence_score = Column(Float)
-    
+
     created_at = Column(DateTime, default=datetime.now)
+
+
+# 일간 학습 리포트
+class DailyReport(Base):
+    """일간 학습 리포트 모델"""
+
+    __tablename__ = "daily_reports"
+
+    # Primary Key
+    report_id = Column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        comment="리포트 고유 ID"
+    )
+
+    # Foreign Key
+    user_id = Column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="유저 ID (users 테이블 참조)"
+    )
+
+    # 기본 정보
+    report_date = Column(Date, nullable=False, index=True, comment="리포트 날짜")
+
+    # 입력 데이터 (학습 통계)
+    total_study_time = Column(Integer, nullable=False, comment="총 학습 시간(분)")
+    achievement_rate = Column(Float, nullable=False, comment="평균 성취도(%)")
+    question_count = Column(Integer, nullable=False, comment="총 질문 횟수")
+    most_immersive_subject = Column(String(100), comment="가장 몰입한 과목")
+    subject_details = Column(JSONB, comment="과목별 상세 정보")
+
+    # AI 생성 컨텐츠
+    ai_summary_title = Column(String(200), comment="AI 생성 요약 제목")
+    ai_good_point = Column(Text, comment="AI 피드백: 잘한 점")
+    ai_improvement_point = Column(Text, comment="AI 피드백: 개선 포인트")
+    keywords = Column(JSONB, comment="키워드 배열 (3개)")
+    passion_temp = Column(Float, comment="열정 온도 (36.5~100)")
+    subject_badges = Column(JSONB, comment="과목별 배지")
+
+    # 메타데이터
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+        comment="생성 시각"
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="수정 시각"
+    )
+
+    # 복합 인덱스 (사용자별 날짜 조회 최적화, 중복 방지)
+    __table_args__ = (
+        Index('idx_user_date', 'user_id', 'report_date', unique=True),
+    )
+
+    def to_dict(self):
+        """모델을 API 응답 형식으로 변환"""
+        return {
+            "report_id": str(self.report_id),
+            "user_id": str(self.user_id),
+            "report_date": self.report_date.isoformat() if self.report_date else None,
+            "ai_summary_title": self.ai_summary_title,
+            "ai_good_point": self.ai_good_point,
+            "ai_improvement_point": self.ai_improvement_point,
+            "keywords": self.keywords,
+            "passion_temp": self.passion_temp,
+            "subject_badges": self.subject_badges,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
+    def __repr__(self):
+        return f"<DailyReport(user_id={self.user_id}, date={self.report_date}, temp={self.passion_temp}°C)>"
