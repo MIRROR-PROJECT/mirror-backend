@@ -22,7 +22,7 @@ async def generate_weekly_plan(
         weekly_schedule: 요일별 가용 시간 텍스트
         
     Returns:
-        생성된 주간 계획 JSON
+        생성된 주간 계획 JSON (영어로)
     """
     
     # 프롬프트 생성
@@ -38,9 +38,17 @@ async def generate_weekly_plan(
         response = await client.chat.completions.create(
             model="gpt-4o",  # 또는 "gpt-4o-mini"
             messages=[
+                # {
+                #     "role": "system",
+                #     "content": "당신은 학생 개개인의 학습 스타일을 분석하여 최적화된 주간 학습 계획을 생성하는 전문 AI 튜터입니다. 반드시 순수 JSON 형식으로만 응답하세요."
+                # },
+                # {
+                #     "role": "user",
+                #     "content": prompt
+                # }
                 {
                     "role": "system",
-                    "content": "당신은 학생 개개인의 학습 스타일을 분석하여 최적화된 주간 학습 계획을 생성하는 전문 AI 튜터입니다. 반드시 순수 JSON 형식으로만 응답하세요."
+                    "content": "You are a professional AI tutor who analyzes each student's individual learning style and generates an optimized weekly study plan. You must respond only in pure JSON format."
                 },
                 {
                     "role": "user",
@@ -234,7 +242,7 @@ def _build_prompt(
 3. **weekly_goals**: 과목별 구체적 목표 3개
 
 반드시 7일치 계획을 모두 생성하세요.
-그리고 꼭 한국어로만 답변하세요.
+그리고 꼭 영어로 답변하세요.
 """
     
     # 시작 날짜 계산 (다음 월요일)
@@ -438,7 +446,7 @@ async def regenerate_daily_plan_for_date(
 - tasks 배열의 각 테스크 항목의 title은 최대한 구체적으로 작성 (단원 언급, 페이지 범위 언급)
 - instruction은 "~하세요" 직접 행동 지시 형식으로
 - 과제의 총 시간(assigned_minutes + rest_after)이 가용 시간을 초과하지 않도록
-- 반드시 한국어로만 작성
+- 반드시 영어로만 작성
 """
     
     # 4. OpenAI API 호출
@@ -448,7 +456,7 @@ async def regenerate_daily_plan_for_date(
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": "당신은 학생 맞춤형 학습 계획 전문가입니다. 반드시 순수 JSON 형식으로만 응답하세요."},
+                {"role": "system", "content": "당신은 학생 맞춤형 학습 계획 전문가입니다. 반드시 순수 JSON 형식으로만 영어로 응답하세요."},
                 {"role": "user", "content": DAILY_PLAN_PROMPT}
             ],
             temperature=0.7,

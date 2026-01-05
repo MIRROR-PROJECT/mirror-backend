@@ -34,7 +34,7 @@ class ReportGenerationService:
             subject_details: 과목별 상세 정보
 
         Returns:
-            AI 생성 리포트 컨텐츠
+            AI 생성 리포트 컨텐츠 (영어로 반환)
         """
 
         # 과목별 정보 포맷팅
@@ -44,36 +44,36 @@ class ReportGenerationService:
         ])
 
         prompt = f"""
-당신은 학생의 일일 학습을 분석하는 AI 튜터입니다.
-아래 학습 데이터를 바탕으로 학생에게 동기부여가 되는 따뜻한 피드백을 작성해주세요.
+You are an AI tutor who analyzes a student's daily learning.
+Based on the study data below, write warm, motivating feedback for the student.
 
-## 오늘의 학습 데이터
-- 총 학습 시간: {total_study_time}분
-- 평균 성취도: {achievement_rate}%
-- 총 질문 횟수: {question_count}회
-- 가장 몰입한 과목: {most_immersive_subject}
+## Today's Study Data
+- Total study time: {total_study_time} minutes
+- Average achievement rate: {achievement_rate}%
+- Total number of questions asked: {question_count}
+- Most immersive subject: {most_immersive_subject}
 
-## 과목별 상세
+## Subject Details
 {subjects_text}
 
-## 출력 형식 (JSON)
-다음 JSON 형식으로만 응답하세요:
-{{
-    "ai_summary_title": "오늘의 학습을 한 문장으로 요약 (20자 이내)",
-    "ai_good_point": "오늘 잘한 점 (50-100자, 구체적이고 따뜻하게)",
-    "ai_improvement_point": "내일 더 나아질 수 있는 점 (50-100자, 격려하는 톤으로)",
-    "keywords": ["키워드1", "키워드2", "키워드3"],
-    "passion_temp": 열정 온도 (36.5-100 사이의 숫자, 학습 몰입도와 성취도 반영),
+## Output Format (JSON)
+Respond ONLY in the following JSON format:
+{
+    "ai_summary_title": "Summarize today's learning in one sentence (within 20 characters)",
+    "ai_good_point": "What you did well today (50–100 characters, specific and warm)",
+    "ai_improvement_point": "How you can do even better tomorrow (50–100 characters, encouraging tone)",
+    "keywords": ["keyword1", "keyword2", "keyword3"],
+    "passion_temp": Passion temperature (a number between 36.5 and 100, reflecting study immersion and achievement),
     "subject_badges": [
-        {{"subject": "과목명", "badge": "뱃지명", "reason": "뱃지 이유"}}
+        {"subject": "Subject name", "badge": "Badge name", "reason": "Reason for the badge"}
     ]
-}}
+}
 
-## 주의사항
-- 학생을 격려하고 동기부여하는 톤 유지
-- 구체적인 숫자와 과목명을 활용
-- 열정 온도는 학습 시간, 성취도, 질문 횟수를 종합적으로 반영
-- 뱃지는 가장 두드러진 과목에만 부여 (최대 3개)
+## Notes
+- Maintain an encouraging and motivating tone for the student.
+- Use specific numbers and subject names.
+- Passion temperature should reflect overall study time, achievement rate, and number of questions asked.
+- Award badges only to the most outstanding subjects (up to 3).
 """
 
         try:
@@ -89,12 +89,21 @@ class ReportGenerationService:
             import json
             result = json.loads(response.choices[0].message.content)
 
-            # 기본값 설정 (혹시 모를 누락 대비)
+            # # 기본값 설정 (혹시 모를 누락 대비)
+            # return {
+            #     "ai_summary_title": result.get("ai_summary_title", "오늘도 성장한 하루"),
+            #     "ai_good_point": result.get("ai_good_point", "꾸준히 학습하는 모습이 멋집니다!"),
+            #     "ai_improvement_point": result.get("ai_improvement_point", "내일은 조금 더 깊이 있게 공부해봐요."),
+            #     "keywords": result.get("keywords", ["성장", "꾸준함", "노력"]),
+            #     "passion_temp": result.get("passion_temp", 50.0),
+            #     "subject_badges": result.get("subject_badges", [])
+            # }
+            # Default values (as a fallback in case anything is missing)
             return {
-                "ai_summary_title": result.get("ai_summary_title", "오늘도 성장한 하루"),
-                "ai_good_point": result.get("ai_good_point", "꾸준히 학습하는 모습이 멋집니다!"),
-                "ai_improvement_point": result.get("ai_improvement_point", "내일은 조금 더 깊이 있게 공부해봐요."),
-                "keywords": result.get("keywords", ["성장", "꾸준함", "노력"]),
+                "ai_summary_title": result.get("ai_summary_title", "Another day of growth"),
+                "ai_good_point": result.get("ai_good_point", "Your consistent studying is awesome!"),
+                "ai_improvement_point": result.get("ai_improvement_point", "Tomorrow, try studying a bit more deeply."),
+                "keywords": result.get("keywords", ["Growth", "Consistency", "Effort"]),
                 "passion_temp": result.get("passion_temp", 50.0),
                 "subject_badges": result.get("subject_badges", [])
             }
