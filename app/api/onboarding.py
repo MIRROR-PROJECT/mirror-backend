@@ -69,18 +69,69 @@ async def select_role(
                 detail="사용자를 찾을 수 없습니다. 먼저 회원가입을 완료해주세요."
             )
         
-        # 1. 이미 역할이 설정되어 있는지 확인
+        # 1. 이미 역할이 설정되어 있는지 확인 (User.role + 실제 프로필 테이블)
         print(f"\n🔒 역할 중복 확인 중...")
-        print(f"   현재 역할: {current_user.role}")
-        
-        if current_user.role is not None and current_user.role != "STUDENT":
-            print(f"🚫 409 에러 발생: 이미 역할 설정됨 ({current_user.role})")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="이미 역할이 설정되어 있습니다"
+        print(f"   User.role: {current_user.role}")
+
+        # 실제 프로필 테이블 확인
+        teacher_check = await db.execute(
+            select(TeacherProfile).filter(TeacherProfile.user_id == current_user.id)
+        )
+        existing_teacher = teacher_check.scalars().first()
+
+        parent_check = await db.execute(
+            select(ParentProfile).filter(ParentProfile.user_id == current_user.id)
+        )
+        existing_parent = parent_check.scalars().first()
+
+        student_check = await db.execute(
+            select(StudentProfile).filter(StudentProfile.user_id == current_user.id)
+        )
+        existing_student = student_check.scalars().first()
+
+        print(f"   TeacherProfile 존재: {existing_teacher is not None}")
+        print(f"   ParentProfile 존재: {existing_parent is not None}")
+        print(f"   StudentProfile 존재: {existing_student is not None}")
+
+        # Teacher 역할 요청 시 이미 TeacherProfile이 있으면 User.role 동기화 후 반환
+        if request.role == RoleType.TEACHER and existing_teacher:
+            print(f"⚠️  이미 TeacherProfile 존재 - User.role 동기화 후 기존 프로필 반환")
+            if current_user.role != "teacher":
+                current_user.role = "teacher"
+                await db.commit()
+                print(f"✅ User.role을 'teacher'로 동기화 완료")
+
+            return RoleSelectionResponse.success_res(
+                data=RoleSelectionData(
+                    user_id=current_user.id,
+                    role="teacher",
+                    role_id=existing_teacher.id
+                ),
+                message="이미 선생님 프로필이 존재합니다",
+                code=200
             )
-        
-        print(f"✅ 역할 중복 없음 - 진행 가능")
+
+        # Parent 역할 요청 시 이미 ParentProfile이 있으면 User.role 동기화 후 반환
+        if request.role == RoleType.PARENT and existing_parent:
+            print(f"⚠️  이미 ParentProfile 존재 - User.role 동기화 후 기존 프로필 반환")
+            if current_user.role != "parent":
+                current_user.role = "parent"
+                await db.commit()
+                print(f"✅ User.role을 'parent'로 동기화 완료")
+
+            return RoleSelectionResponse.success_res(
+                data=RoleSelectionData(
+                    user_id=current_user.id,
+                    role="parent",
+                    role_id=existing_parent.id
+                ),
+                message="이미 학부모 프로필이 존재합니다",
+                code=200
+            )
+
+        # Student는 다중 허용 (여러 클래스 가능)
+
+        print(f"✅ 역할 중복 없음 - 새 프로필 생성 진행")
         
         role_id = None
         role_str = request.role.value
