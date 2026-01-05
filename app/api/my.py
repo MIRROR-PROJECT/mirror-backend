@@ -240,7 +240,9 @@ async def create_weekly_missions(
         # Task ID 매핑
         for day_plan in ai_response['weekly_plan']:
             for task_data in day_plan['tasks']:
-                task_data['task_id'] = str(task_id_map.get(task_data['sequence'], uuid.uuid4()))
+                task_data['task_id'] = task_id_map.get(task_data['sequence'], uuid.uuid4())
+                # is_completed 필드 추가 (TaskDetail 스키마 호환)
+                task_data['is_completed'] = False
         
         # 응답 생성
         response_data = schemas.WeeklyPlanData(
