@@ -16,9 +16,15 @@ ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg:/
 # 비동기 엔진 및 세션 설정
 engine = create_async_engine(
     ASYNC_DATABASE_URL,
+    pool_pre_ping=True,  # 연결 전 핑 테스트
+    pool_size=5,  # 연결 풀 크기
+    max_overflow=10,  # 최대 추가 연결
+    pool_timeout=30,  # 연결 풀 대기 시간
     connect_args={
         "prepared_statement_cache_size": 0,
-        "statement_cache_size": 0  # 두 개 다 넣어버리는 게 안전합니다.
+        "statement_cache_size": 0,
+        "timeout": 60,  # 연결 타임아웃 60초로 증가
+        "command_timeout": 60  # 명령 실행 타임아웃
     }
 )
 # 세션 설정 수정
