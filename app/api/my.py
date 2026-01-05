@@ -178,14 +178,25 @@ async def create_weekly_missions(
         # ✅ 7일치 DailyPlan 생성
         daily_plan_map = {}
         
-        for day_index, day_plan_data in enumerate(ai_response['weekly_plan']):
+        # AI 응답이 6개든 7개든 무조건 7일치 생성
+        for day_index in range(7):  # ✅ 0~6 = 7일
             current_date = start_date + timedelta(days=day_index)
+            
+            # AI 데이터가 있으면 사용, 없으면 기본값 사용
+            if day_index < len(ai_response['weekly_plan']):
+                day_plan_data = ai_response['weekly_plan'][day_index]
+                title = day_plan_data.get('daily_focus', f"{current_date.strftime('%Y-%m-%d')} 학습 계획")
+                target_minutes = day_plan_data.get('total_planned_minutes', 0)
+            else:
+                # AI가 이 날짜 데이터를 안 줬으면 기본값
+                title = f"{current_date.strftime('%Y-%m-%d')} 학습 계획"
+                target_minutes = 0
             
             new_daily_plan = models.DailyPlan(
                 student_id=profile.id,
                 plan_date=current_date,
-                title=day_plan_data.get('daily_focus', f"{current_date.strftime('%Y-%m-%d')} 학습 계획"),
-                target_minutes=day_plan_data.get('total_planned_minutes', 0),
+                title=title,
+                target_minutes=target_minutes,
                 is_completed=False
             )
             db.add(new_daily_plan)
@@ -193,7 +204,7 @@ async def create_weekly_missions(
             
             daily_plan_map[current_date] = new_daily_plan.id
             print(f"  📅 {current_date} DailyPlan 생성 (ID: {new_daily_plan.id})")
-        
+
         print(f"✅ {len(daily_plan_map)}개 DailyPlan 생성 완료\n")
         
         # ✅ Task 생성 (각 날짜의 plan_id에 맞게)

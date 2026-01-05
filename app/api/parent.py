@@ -58,6 +58,8 @@ async def update_parent_profile(
             db.add(parent_profile)
 
         # 3. 자녀 이름과 전화번호로 학생 찾기
+        print(f"🔍 학생 검색 중: 이름={request.child_name}, 전화번호={request.child_phone}")
+
         student_user_result = await db.execute(
             select(User).filter(
                 and_(
@@ -68,7 +70,16 @@ async def update_parent_profile(
             )
         )
         student_user = student_user_result.scalars().first()
+
         if not student_user:
+            # 디버깅: 비슷한 학생들 찾기
+            all_students = await db.execute(
+                select(User).filter(User.role == 'STUDENT')
+            )
+            print(f"❌ 학생을 찾지 못했습니다. DB에 등록된 학생 목록:")
+            for s in all_students.scalars().all():
+                print(f"  - 이름: {s.name}, 전화번호: {s.phone_number}")
+
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="자녀(학생)를 찾을 수 없습니다. 이름과 전화번호를 확인해주세요.")
         
         student_profile_result = await db.execute(
