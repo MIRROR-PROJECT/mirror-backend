@@ -3,7 +3,7 @@
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from sqlalchemy.exc import IntegrityError
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -15,7 +15,9 @@ from ..schemas import (
     DailyReportData,
     APIResponse,
     HistoryAPIResponse,
-    ReportHistoryData
+    ReportHistoryData,
+    PaginatedReportsResponse,
+    PaginatedReportsData
 )
 from ..services.report_service import ReportGenerationService
 from ..models import DailyReport
@@ -151,6 +153,125 @@ async def create_daily_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="리포트 생성 중 오류가 발생했습니다"
+        )
+
+
+@router.get("", response_model=PaginatedReportsResponse)
+async def get_all_reports(
+    page: int = 1,
+    page_size: int = 20,
+    user_id: Optional[uuid.UUID] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    모든 일간 리포트를 페이지네이션과 필터링을 통해 조회
+
+    Query Parameters:
+        page: 페이지 번호 (1부터 시작, 기본값: 1)
+        page_size: 페이지당 항목 수 (기본값: 20, 최대: 100)
+        user_id: 특정 사용자 필터링 (선택)
+        start_date: 시작 날짜 (YYYY-MM-DD, 선택)
+        end_date: 종료 날짜 (YYYY-MM-DD, 선택)
+
+    Returns:
+        200: 조회 성공 (빈 결과 포함)
+        400: 잘못된 파라미터
+        401: 인증 실패
+    """
+    try:
+        # 파라미터 검증
+        if page < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="페이지 번호는 1 이상이어야 합니다"
+            )
+
+        if page_size < 1 or page_size > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="페이지 크기는 1-100 사이여야 합니다"
+            )
+
+        # 기본 쿼리 구성
+        query = select(DailyReport)
+        filters = []
+
+        # 필터 적용
+        if user_id:
+            filters.append(DailyReport.user_id == user_id)
+
+        if start_date:
+            try:
+                start = datetime.fromisoformat(start_date).date()
+                filters.append(DailyReport.report_date >= start)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="start_date 형식이 올바르지 않습니다 (YYYY-MM-DD)"
+                )
+
+        if end_date:
+            try:
+                end = datetime.fromisoformat(end_date).date()
+                filters.append(DailyReport.report_date <= end)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="end_date 형식이 올바르지 않습니다 (YYYY-MM-DD)"
+                )
+
+        # 필터 적용
+        if filters:
+            query = query.filter(and_(*filters))
+
+        # 전체 개수 조회
+        count_query = select(func.count()).select_from(DailyReport)
+        if filters:
+            count_query = count_query.filter(and_(*filters))
+
+        count_result = await db.execute(count_query)
+        total_count = count_result.scalar() or 0
+
+        # 페이지네이션 적용
+        offset = (page - 1) * page_size
+        query = query.order_by(DailyReport.report_date.desc()).offset(offset).limit(page_size)
+
+        # 데이터 조회
+        result = await db.execute(query)
+        reports = result.scalars().all()
+
+        # 응답 데이터 구성
+        report_list = [DailyReportData(**r.to_dict()) for r in reports]
+
+        # 전체 페이지 수 계산
+        total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 0
+
+        logger.info(f"리포트 목록 조회: page={page}, total_count={total_count}")
+
+        return PaginatedReportsResponse(
+            success=True,
+            code=200,
+            message="리포트 목록 조회 성공",
+            data=PaginatedReportsData(
+                reports=report_list,
+                total_count=total_count,
+                page=page,
+                page_size=page_size,
+                total_pages=total_pages
+            )
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        logger.error(f"리포트 목록 조회 실패: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="리포트 목록 조회 중 오류가 발생했습니다"
         )
 
 

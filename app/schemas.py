@@ -1258,6 +1258,17 @@ class ReportHistoryData(BaseModel):
     statistics: dict
 
 
+class PaginatedReportsData(BaseModel):
+    """페이지네이션된 리포트 목록 데이터"""
+    reports: List[DailyReportData] = Field(..., description="리포트 목록")
+    total_count: int = Field(..., description="전체 리포트 개수 (필터 적용 후)")
+    page: int = Field(..., description="현재 페이지 번호", ge=1)
+    page_size: int = Field(..., description="페이지당 항목 수", ge=1, le=100)
+    total_pages: int = Field(..., description="전체 페이지 수", ge=0)
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # ============================================================================
 # Mirror 프로젝트 표준 응답 형식
 # ============================================================================
@@ -1297,6 +1308,16 @@ class HistoryAPIResponse(BaseModel):
     code: int
     message: str
     data: Optional[ReportHistoryData] = None
+
+
+class PaginatedReportsResponse(BaseModel):
+    """페이지네이션된 리포트 목록 응답"""
+    success: bool = Field(..., description="요청 처리 성공 여부")
+    code: int = Field(..., description="HTTP 상태 코드")
+    message: str = Field(..., description="처리 결과 메시지")
+    data: Optional[PaginatedReportsData] = Field(None, description="페이지네이션된 리포트 데이터")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ErrorResponse(BaseModel):
